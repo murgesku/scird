@@ -29,6 +29,11 @@ class RedBlackTree:
             self.next = None
             self.count = 1
 
+        def __repr__(self):
+            color = "Black" if self.color == BLACK else "Red"
+            content = "None" if self.content is None else repr(self.content)
+            return f"<{color}:{content}>"
+
         def replace(self, other):
             other.count = self.count
             other.parent = self.parent
@@ -86,9 +91,9 @@ class RedBlackTree:
         x = self._root
         while x is not None:
             y = x
-            if content.name < x.content.name:
+            if x.content.name > z.content.name:
                 x = x.left
-            elif content.name > x.content.name:
+            elif x.content.name < z.content.name:
                 x = x.right
             else:
                 t = x
@@ -99,9 +104,9 @@ class RedBlackTree:
                 x.count += 1
                 return
         z.parent = y
-        if content.name < y.content.name:
+        if y.content.name > z.content.name:
             y.left = z
-        elif content.name > y.content.name:
+        elif y.content.name < z.content.name:
             y.right = z
         self._append_repair(z)
 
