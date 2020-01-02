@@ -1,23 +1,6 @@
 import re
-from enum import Enum
 
-_tokens = ("LPAREN", "RPAREN", "LBRACE", "RBRACE", "LSQUARE", "RSQUARE",
-           "COMMA", "DOT", "COLON", "SEMICOLON", "POINTER",
-           "ASSIGN", "MINUS", "PLUS", "MUL", "DIV", "MOD",
-           "BIT_NOT", "BIT_AND", "BIT_OR", "BIT_XOR", "SHL", "SHR",
-           "NOT", "AND", "OR",
-           "EQUAL", "NOT_EQUAL", "LESS", "MORE", "LESS_EQUAL", "MORE_EQUAL",
-           "IDENTIFIER", "NUMBER", "INTEGER", "DWORD", "FLOAT", "STRING",
-           "TYPE",
-           "IF", "ELSE", "WHILE", "FOR", "BREAK", "CONTINUE", "EXIT",
-           "FUNCTION", "CLASS", "INCLUDE", "INSERT",
-           "TRY", "CATCH", "FINALLY", "THROW",
-           "NEWLINE", "INDENT", "TAB", "SPACE", "COMMENT", "BLOCK_COMMENT",
-           "END")
-
-# noinspection PyArgumentList
-TokenType = Enum("TokenType", _tokens)
-del _tokens
+from rscript.lang.ast import Token, TokenType
 
 _keywords = {"unknown": TokenType.TYPE,
              "int": TokenType.TYPE,
@@ -60,20 +43,6 @@ def _is_digit(c):
 
 def _is_alphanum(c):
     return _is_alpha(c) or _is_digit(c)
-
-
-class Token:
-    __slots__ = "type", "lexeme", "literal", "line", "column"
-
-    def __init__(self, type, lexeme, literal, line, column):
-        self.type = type
-        self.lexeme = lexeme
-        self.literal = literal
-        self.line = line
-        self.column = column
-
-    def __repr__(self):
-        return f"{self.type.name}({self.lexeme}) at {self.line}:{self.column}"
 
 
 class Lexer:
@@ -218,7 +187,7 @@ class Lexer:
 
     def _block_comment(self):
         level = 1
-        c = self._peek()
+        # c = self._peek()
         while not self._at_and():
             if self._peek() == '\x0d' and self._peek_next() == '\x0a':
                 self._current += 2

@@ -11,7 +11,7 @@ import stream
 from blockpar import BlockPar
 from enums import *
 from utils import *
-from scr import Status
+from rscript.file.scr import Status
 
 
 class SourceScript:
