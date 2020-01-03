@@ -7,10 +7,10 @@ __all__ = [
     "Dialog", "DialogMsg", "DialogAnswer",
 ]
 
-import stream
-from blockpar import BlockPar
-from enums import *
-from utils import *
+from rangers import stream
+from rangers.blockpar import BlockPar
+from rscript.file.enums import *
+from rscript.file.utils import *
 from rscript.file.scr import Status
 
 

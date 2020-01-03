@@ -2,10 +2,9 @@ __all__ = [
     "CompiledScript",
 ]
 
-import blockpar
-import stream
-from enums import *
-from utils import MinMax
+from rangers import stream, blockpar
+from rscript.file.enums import *
+from rscript.file.utils import MinMax
 
 
 class CompiledScript:

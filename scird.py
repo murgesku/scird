@@ -3,13 +3,12 @@
 import argparse
 import os.path
 
-from scr import CompiledScript
-from svr import *
-from lexer import Lexer
+from rscript.file.scr import CompiledScript
+from rscript.file.svr import *
+from rscript.lang.lexer import Lexer
 from analyzer import Analyzer
-from linker import Linker
-from enums import *
-from utils import *
+from utils.linker import Linker
+from rscript.file.enums import *
 
 __version__ = "0.9.0"
 

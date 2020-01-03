@@ -9,8 +9,8 @@ __all__ = [
 from enum import IntEnum
 import zlib, struct
 
-from _blockpar_helper import *
-import stream
+from rangers._blockpar_helper import *
+from rangers import stream
 
 
 class BlockPar:
