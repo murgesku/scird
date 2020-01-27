@@ -9,8 +9,11 @@ from io import BytesIO, SEEK_CUR, SEEK_END, SEEK_SET
 from struct import pack, unpack
 
 
-class Stream(object):
-    """Provide common data types I/O facilities in 'Rangers' style."""
+class Stream:
+    """
+    Provide common data types I/O facilities with files.
+    """
+
     def __init__(self, io):
         self._io = io
 
@@ -23,8 +26,8 @@ class Stream(object):
     def close(self):
         self._io.close()
 
-    def seek(self, n):
-        self._io.seek(n)
+    def seek(self, n, flag=SEEK_SET):
+        self._io.seek(n, flag)
 
     def pos(self):
         return self._io.tell()
@@ -37,58 +40,116 @@ class Stream(object):
         return size
 
     def write(self, v):
+        """
+        :type v: bytes
+        """
         self._io.write(v)
 
-    def write_bool(self, v: bool):
+    def write_bool(self, v):
+        """
+        :type v: bool
+        """
         self._io.write(pack('<B', int(v)))
-    
-    def write_byte(self, v: int):
+
+    def write_byte(self, v):
+        """
+        :type v: int
+        """
+        assert 0 <= v < 256
         self._io.write(pack('<B', v))
-    
-    def write_word(self, v: int):
+
+    def write_word(self, v):
+        """
+        :type v: int
+        """
+        assert 0 <= v < 65536
         self._io.write(pack('<H', v))
-    
-    def write_int(self, v: int):
+
+    def write_int(self, v):
+        """
+        :type v: int
+        """
         self._io.write(pack('<i', v))
-    
-    def write_uint(self, v: int):
+
+    def write_uint(self, v):
+        """
+        :type v: int
+        """
         self._io.write(pack('<I', v))
-    
-    def write_single(self, v: float):
+
+    def write_single(self, v):
+        """
+        :type v: float
+        """
+        assert 1.5e-45 <= v <= 3.4e38
         self._io.write(pack('<f', v))
-    
-    def write_double(self, v: float):
+
+    def write_double(self, v):
+        """
+        :type v: float
+        """
         self._io.write(pack('<d', v))
-    
-    def write_widestr(self, v: str):
+
+    def write_widestr(self, v):
+        """
+        :type v: str
+        """
         self._io.write(v.encode('utf-16le'))
         self._io.write(b'\x00\x00')
 
-    def read(self, size) -> bytes:
+    def read(self, size):
+        """
+        :type size: int
+        :rtype : bytes
+        """
         return self._io.read(size)
 
-    def read_bool(self) -> bool:
+    def read_bool(self):
+        """
+        :rtype : bool
+        """
         return unpack('<B', self._io.read(1))[0] == 1
 
-    def read_byte(self) -> int:
+    def read_byte(self):
+        """
+        :rtype : int
+        """
         return unpack('<B', self._io.read(1))[0]
 
-    def read_word(self) -> int:
+    def read_word(self):
+        """
+        :rtype : int
+        """
         return unpack('<H', self._io.read(2))[0]
 
-    def read_int(self) -> int:
+    def read_int(self):
+        """
+        :rtype : int
+        """
         return unpack('<i', self._io.read(4))[0]
 
-    def read_uint(self) -> int:
+    def read_uint(self):
+        """
+        :rtype : int
+        """
         return unpack('<I', self._io.read(4))[0]
 
-    def read_single(self) -> float:
+    def read_single(self):
+        """
+        :rtype : float
+        """
         return unpack('<f', self._io.read(4))[0]
 
-    def read_double(self) -> float:
+    def read_double(self):
+        """
+        :rtype : float
+        """
         return unpack('<d', self._io.read(8))[0]
 
-    def read_widestr(self) -> str:
+    def read_widestr(self):
+        """
+        :rtype : str
+        """
         start = self._io.tell()
         size = 0
         while True:
