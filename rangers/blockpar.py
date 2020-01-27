@@ -7,10 +7,10 @@ __all__ = [
 ]
 
 from enum import IntEnum
-import zlib, struct
 
 from rangers._blockpar_helper import *
-from rangers import stream
+from rangers import stream, buffer
+from rscript.file.utils import bytes_xor, bytes_to_int
 
 
 class BlockPar:
@@ -23,6 +23,11 @@ class BlockPar:
             BLOCK = 2
 
         def __init__(self, name="", content=None, comment=""):
+            """
+            :type name: str
+            :type content: str | BlockPar | None
+            :type comment: str
+            """
             self.name = name
             if isinstance(content, str):
                 self.kind = self.Kind.PARAM
@@ -47,6 +52,10 @@ class BlockPar:
         self._search_map.append(elem)
 
     def __getitem__(self, key):
+        """
+        :type key: str
+        :rtype: list[BlockPar.Element]
+        """
         node = self._search_map.find(key)
         result = [None for i in range(node.count)]
         for i in range(node.count):
@@ -77,7 +86,7 @@ class BlockPar:
 
     def save(self, f, *, new_format=False):
         """
-        @type f: io.BufferedWriter
+        :type f: io.BufferedWriter | stream.Stream
         """
         s = stream.from_io(f)
 
@@ -153,6 +162,9 @@ class BlockPar:
                 level -= 1
 
     def load(self, f, *, new_format=False):
+        """
+        :type f: io.BufferedReader | stream.Stream
+        """
         s = stream.from_io(f)
 
         self._clear()
@@ -197,7 +209,7 @@ class BlockPar:
 
     def load_txt(self, f):
         """
-        @type f: io.TextIO
+        :type f: io.TextIO
         """
         self._clear()
 
@@ -214,28 +226,28 @@ class BlockPar:
             if line == '':  # EOF
                 break
 
-            line = line.strip('\x09\x0a\x0d\x20')  # \t\r\n\s
+            line = line.strip('\x09\x0a\x0d\x20')  # \t\n\r\s
 
             comment = ''
-            if line.find('//') != -1:
+            if '//' in line:
                 line, comment = line.split('//', 1)
                 line = line.rstrip('\x09\x20')  # \t\s
 
-            if line.find('{') != -1:
+            if '{' in line:
                 stack.append(curblock)
 
                 head = line.split('{', 1)[0]
                 head = head.rstrip('\x09\x20')  # \t\s
 
                 if head.endswith(('^', '~')):
-                    curblock.is_sort = head.endswith('^')
+                    curblock.sorted = head.endswith('^')
                     head = head[:-1]
                     head = head.rstrip('\x09\x20')  # \t\s
                 else:
-                    curblock.is_sort = True
+                    curblock.sorted = True
 
                 path = ''
-                if head.find('=') != -1:
+                if '=' in head:
                     name, path = line.split('=', 1)
                     name = name.rstrip('\x09\x20')  # \t\s
                     path = path.lstrip('\x09\x20')  # \t\s
@@ -251,15 +263,40 @@ class BlockPar:
 
                     level += 1
 
-            elif line.find('}') != -1:
+            elif '}' in line:
                 if level > 0:
                     curblock = stack.pop()
                 level -= 1
 
-            elif line.find('=') != -1:
+            elif '=' in line:
                 name, value = line.split('=', 1)
                 name = name.rstrip('\x09\x20')  # \t\s
                 value = value.lstrip('\x09\x20')  # \t\s
+
+                # multiline parameters - heredoc
+                if value.startswith('<<<'):
+                    value = ''
+                    spacenum = 0
+                    while True:
+                        line = f.readline()
+                        line_no += 1
+                        if line == '':  # EOF
+                            raise Exception("BlockPar.load_txt. "
+                                            "Heredoc end marker not found")
+
+                        if line.strip('\x09\x0a\x0d\x20') == '':
+                            continue
+
+                        if value == '':
+                            spacenum = len(line) - len(line.lstrip('\x20'))
+                            if spacenum > (4 * level):
+                                spacenum = 4 * level
+
+                        if line.lstrip('\x09\x20').startswith('>>>'):
+                            value = value.rstrip('\x0a\x0d')
+                            break
+
+                        value += line[spacenum:]
 
                 curblock[name] = value
 
@@ -268,7 +305,7 @@ class BlockPar:
 
     def save_txt(self, f):
         """
-        @type f: io.TextIO
+        :type f: io.TextIO
         """
         curblock = iter(self)
         left = len(self)
@@ -284,7 +321,18 @@ class BlockPar:
                 if el.kind == BlockPar.Element.Kind.PARAM:
                     f.write(el.name)
                     f.write('=')
-                    f.write(el.content)
+                    if '\x0d' in el.content or '\x0a' in el.content:
+                        f.write('<<<')
+                        f.write('\x0d\x0a')
+                        content = el.content
+                        for s in content.splitlines(keepends=True):
+                            f.write(4 * '\x20' * level)
+                            f.write(s)
+                        f.write('\x0d\x0a')
+                        f.write(4 * '\x20' * level)
+                        f.write('>>>')
+                    else:
+                        f.write(el.content)
                     f.write('\x0d\x0a')
                     left -= 1
 
@@ -316,62 +364,94 @@ class BlockPar:
                     curblock, left = stack.pop()
                     left -= 1
 
+    def get_par(self, path):
+        """
+        :type path: str
+        :rtype: str
+        """
+        path = path.strip().split('.')
+        result = self
+        for part in path:
+            result = result[part][0]
+            if part != path[-1]:
+                if result.kind is not BlockPar.Element.Kind.BLOCK:
+                    raise Exception("BlockPar.get_par. Path do not exists")
+            else:
+                if result.kind is not BlockPar.Element.Kind.PARAM:
+                    raise Exception("BlockPar.get_par. Not a parameter")
+            result = result.content
+        return result
+
+    def get_block(self, path):
+        """
+        :type path: str
+        :rtype: BlockPar
+        """
+        path = path.strip().split('.')
+        result = self
+        for part in path:
+            result = result[part][0]
+            if part != path[-1]:
+                if result.kind is not BlockPar.Element.Kind.BLOCK:
+                    raise Exception("BlockPar.get_block. Path do not exists")
+            else:
+                if result.kind is not BlockPar.Element.Kind.BLOCK:
+                    raise Exception("BlockPar.get_par. Not a block")
+            result = result.content
+        return result
+
 
 def from_txt(path, encoding="cp1251"):
+    """
+    :type path: str
+    :type encoding: str
+    :rtype: BlockPar
+    """
     blockpar = BlockPar()
-    with open(path, "rt", encoding=encoding) as txt:
+    with open(path, "rt", encoding=encoding, newline='') as txt:
         blockpar.load_txt(txt)
     return blockpar
 
 
 def to_txt(blockpar, path, encoding="cp1251"):
-    with open(path, "wt", encoding=encoding) as txt:
+    """
+    :type blockpar: BlockPar
+    :type path: str
+    :type encoding: str
+    """
+    with open(path, "wt", encoding=encoding, newline='') as txt:
         blockpar.save_txt(txt)
 
 
 def from_dat(path):
-    def rand31pm(seed):
-        while True:
-            hi, lo = divmod(seed, 0x1f31d)
-            seed = lo * 0x41a7 - hi * 0xb14
-            if seed < 1:
-                seed += 0x7fffffff
-            yield seed - 1
-
-    def zl_unpack(b):
-        if b[:4] not in (b'ZL01', b'ZL02'):
-            return b'\x00'
-        unzip_size = struct.unpack("<I", b[4:8])[0]
-        unzip_b = zlib.decompress(b[8:], bufsize=unzip_size)
-        return unzip_b
-
+    """
+    :type path: str
+    :rtype : BlockPar
+    """
     blockpar = None
-
     seed_key = b'\x89\xc6\xe8\xb1'
 
-    s = stream.from_file(path)
+    b = buffer.from_file(path)
 
-    content_hash = s.read_uint()
+    content_hash = b.read_uint()
 
-    seed = s.read(4)
-    seed = bytes(x ^ y for (x, y) in zip(seed_key, seed))
-    seed = struct.unpack("<i", seed)[0]
+    seed = bytes_xor(b.read(4), seed_key)
+    seed = bytes_to_int(seed)
 
-    size = s.size() - s.pos()
+    size = b.size() - b.pos()
 
-    temp_buf = bytearray(s.read(size))
+    b.decipher(seed, size)
+    calc_hash = b.calc_hash(size)
 
-    s.close()
-
-    gen = rand31pm(seed)
-    for i in range(len(temp_buf)):
-        temp_buf[i] = temp_buf[i] ^ (next(gen) & 255)
-
-    if zlib.crc32(temp_buf) == content_hash:
-        temp_stream = stream.from_bytes(zl_unpack(temp_buf))
+    if calc_hash == content_hash:
+        unpacked = b.unpack(size)
         blockpar = BlockPar()
-        blockpar.load(temp_stream, new_format=True)
-        temp_stream.close()
+        blockpar.load(unpacked, new_format=True)
+        unpacked.close()
+    else:
+        raise Exception("BlockPar.from_dat. Wrong content hash")
+
+    b.close()
 
     return blockpar
 
