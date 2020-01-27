@@ -3,7 +3,7 @@ __all__ = ["Visitor", "TokenType", "Token", "insignificant", "Expr", "Stmt",
            "GroupExpr", "UnaryExpr", "BinaryExpr", "AssignExpr", "VarDeclExpr",
            "ExpressionStmt", "VarDeclStmt", "FunctionStmt", "ClassStmt",
            "IfStmt", "WhileStmt", "ForStmt", "TryStmt", "ThrowStmt",
-           "KeywordStmt", "BlockStmt"]
+           "KeywordStmt", "BlockStmt", "ExprType", "StmtType"]
 
 from abc import ABC, abstractmethod
 from enum import Enum
@@ -22,16 +22,38 @@ _tokens = ("LPAREN", "RPAREN", "LBRACE", "RBRACE", "LSQUARE", "RSQUARE",
            "NEWLINE", "INDENT", "TAB", "SPACE", "COMMENT", "BLOCK_COMMENT",
            "END")
 
+_exprs = ("EXPR", "LITERAL", "VARIABLE", "ACCESS", "CALL",
+          "ARRAY", "GROUP", "UNARY", "BINARY", "ASSIGN",
+          "VARDECL")
+
+_stmts = ("STMT", "EXPRESSION", "VARDECL", "FUNCTION", "CLASS",
+          "IF", "WHILE", "FOR", "TRY", "THROW",
+          "KEYWORD", "BLOCK")
+
 # noinspection PyArgumentList
 TokenType = Enum("TokenType", _tokens)
-del _tokens
+# noinspection PyArgumentList
+ExprType = Enum("ExprType", _exprs)
+# noinspection PyArgumentList
+StmtType = Enum("StmtType", _stmts)
+del _tokens, _exprs, _stmts
 
 
-class Token:
-    __slots__ = "type", "lexeme", "literal", "line", "column",
+class CodeUnit:
+    __slots__ = "type",
+
+    def __init__(self, type):
+        """
+        :type type: Enum
+        """
+        self.type = type
+
+
+class Token(CodeUnit):
+    __slots__ = "lexeme", "literal", "line", "column",
 
     def __init__(self, type, lexeme, literal, line, column):
-        self.type = type
+        super().__init__(type)
         self.lexeme = lexeme
         self.literal = literal
         self.line = line
@@ -40,19 +62,23 @@ class Token:
     def __repr__(self):
         return f"{self.type.name}({self.lexeme}) at {self.line}:{self.column}"
 
+    def accept(self, visitor):
+        return visitor.visit_token(self)
+
 
 insignificant = (TokenType.INDENT, TokenType.SPACE,
                  TokenType.TAB, TokenType.NEWLINE,
                  TokenType.COMMENT, TokenType.BLOCK_COMMENT)
 
 
-class Expr:
+class Expr(CodeUnit):
     __slots__ = "children",
 
-    def __init__(self, children):
+    def __init__(self, type=ExprType.EXPR, children=None):
         """
         :type children: list[Token|Expr]
         """
+        super().__init__(type)
         self.children = children if children is not None else []
 
     @abstractmethod
@@ -71,7 +97,7 @@ class LiteralExpr(Expr):
         :param value: Index of "value" unit
         :type value: int
         """
-        super().__init__(children)
+        super().__init__(ExprType.LITERAL, children)
         self.value = value
 
     def accept(self, visitor):
@@ -89,7 +115,7 @@ class VariableExpr(Expr):
         :param name: Index of "name" unit
         :type name: int
         """
-        super().__init__(children)
+        super().__init__(ExprType.VARIABLE, children)
         self.name = name
 
     def accept(self, visitor):
@@ -109,7 +135,7 @@ class AccessExpr(Expr):
         :param name: Index of "name" unit
         :type name: int
         """
-        super().__init__(children)
+        super().__init__(ExprType.ACCESS, children)
         self.object = object
         self.name = name
 
@@ -128,7 +154,7 @@ class CallExpr(Expr):
         :type name: int
         :type arguments: tuple[int]
         """
-        super().__init__(children)
+        super().__init__(ExprType.CALL, children)
         self.name = name
         self.arguments = arguments
 
@@ -144,7 +170,7 @@ class ArrayExpr(Expr):
         :type name: int
         :type indices: tuple[int]
         """
-        super().__init__(children)
+        super().__init__(ExprType.ARRAY, children)
         self.name = name
         self.indices = indices
 
@@ -159,7 +185,7 @@ class GroupExpr(Expr):
         """
         :type expression: int
         """
-        super().__init__(children)
+        super().__init__(ExprType.GROUP, children)
         self.expression = expression
 
     def accept(self, visitor):
@@ -174,7 +200,7 @@ class UnaryExpr(Expr):
         :type operator: int
         :type right: int
         """
-        super().__init__(children)
+        super().__init__(ExprType.UNARY, children)
         self.operator = operator
         self.right = right
 
@@ -191,7 +217,7 @@ class BinaryExpr(Expr):
         :type operator: int
         :type right: int
         """
-        super().__init__(children)
+        super().__init__(ExprType.BINARY, children)
         self.operator = operator
         self.left = left
         self.right = right
@@ -204,7 +230,7 @@ class AssignExpr(Expr):
     __slots__ = "target", "value",
 
     def __init__(self, children, target, value):
-        super().__init__(children)
+        super().__init__(ExprType.ASSIGN, children)
         self.target = target
         self.value = value
 
@@ -220,7 +246,7 @@ class VarDeclExpr(Expr):
         :type type: int
         :type variables: tuple[tuple[int]]
         """
-        super().__init__(children)
+        super().__init__(ExprType.VARDECL, children)
         self.type = type
         self.variables = variables
 
@@ -228,13 +254,14 @@ class VarDeclExpr(Expr):
         return visitor.visit_vardecl_expr(self)
 
 
-class Stmt:
+class Stmt(CodeUnit):
     __slots__ = "children",
 
-    def __init__(self, children):
+    def __init__(self, type=StmtType.STMT, children=None):
         """
         @type children: list[Token|Expr|Stmt]
         """
+        super().__init__(type)
         self.children = children if children is not None else []
 
     @abstractmethod
@@ -249,7 +276,7 @@ class ExpressionStmt(Stmt):
         """
         :type expression: int
         """
-        super().__init__(children)
+        super().__init__(StmtType.EXPRESSION, children)
         self.expression = expression
 
     def accept(self, visitor):
@@ -263,7 +290,7 @@ class BlockStmt(Stmt):
         """
         :type statements: tuple[int]
         """
-        super().__init__(children)
+        super().__init__(StmtType.BLOCK, children)
         self.statements = statements
 
     def accept(self, visitor):
@@ -278,7 +305,7 @@ class VarDeclStmt(Stmt):
         :type type: int
         :type variables: tuple[tuple[int]]
         """
-        super().__init__(children)
+        super().__init__(StmtType.VARDECL, children)
         self.type = type
         self.variables = variables
 
@@ -295,7 +322,7 @@ class FunctionStmt(Stmt):
         :type parameters: tuple[tuple[int]]
         :type body: int
         """
-        super().__init__(children)
+        super().__init__(StmtType.FUNCTION, children)
         self.name = name
         self.parameters = parameters
         self.body = body
@@ -308,7 +335,7 @@ class ClassStmt(Stmt):
     __slots__ = "name", "parents", "body",
 
     def __init__(self, children, name, parents, body):
-        super().__init__(children)
+        super().__init__(StmtType.CLASS, children)
         self.name = name
         self.parents = parents
         self.body = body
@@ -321,7 +348,7 @@ class IfStmt(Stmt):
     __slots__ = "condition", "then_branch", "else_branch",
 
     def __init__(self, children, condition, then_branch, else_branch):
-        super().__init__(children)
+        super().__init__(StmtType.IF, children)
         self.condition = condition
         self.then_branch = then_branch
         self.else_branch = else_branch
@@ -334,7 +361,7 @@ class WhileStmt(Stmt):
     __slots__ = "condition", "body",
 
     def __init__(self, children, condition, body):
-        super().__init__(children)
+        super().__init__(StmtType.WHILE, children)
         self.condition = condition
         self.body = body
 
@@ -352,7 +379,7 @@ class ForStmt(Stmt):
         :type increment: tuple[int]
         :type body: int
         """
-        super().__init__(children)
+        super().__init__(StmtType.FOR, children)
         self.initializer = initializer
         self.condition = condition
         self.increment = increment
@@ -375,7 +402,7 @@ class TryStmt(Stmt):
         :param finally_branch: -1 if missing
         :type finally_branch: int
         """
-        super().__init__(children)
+        super().__init__(StmtType.TRY, children)
         self.try_branch = try_branch
         self.exception = exception
         self.catch_branch = catch_branch
@@ -389,7 +416,7 @@ class ThrowStmt(Stmt):
     __slots__ = "expression",
 
     def __init__(self, children, expression):
-        super().__init__(children)
+        super().__init__(StmtType.THROW, children)
         self.expression = expression
 
     def accept(self, visitor):
@@ -400,7 +427,7 @@ class KeywordStmt(Stmt):
     __slots__ = "keyword",
 
     def __init__(self, children, keyword):
-        super().__init__(children)
+        super().__init__(StmtType.KEYWORD, children)
         self.keyword = keyword
 
     def accept(self, visitor):
@@ -408,6 +435,11 @@ class KeywordStmt(Stmt):
 
 
 class Visitor(ABC):
+    @abstractmethod
+    def visit_token(self, tok):
+        """:type tok: Token"""
+        pass
+
     @abstractmethod
     def visit_literal_expr(self, expr):
         """:type expr: LiteralExpr"""

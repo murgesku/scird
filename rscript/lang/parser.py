@@ -154,13 +154,14 @@ class Parser:
 
     def _keyword(self):
         begin = self._current - 1
-        if type == TokenType.BREAK:
+        tok = self._tokens[begin]
+        if tok.type == TokenType.BREAK:
             self._consume(TokenType.SEMICOLON,
                           "Expect ';' after 'brake' statement.")
-        elif type == TokenType.CONTINUE:
+        elif tok.type == TokenType.CONTINUE:
             self._consume(TokenType.SEMICOLON,
                           "Expect ';' after 'continue' statement.")
-        elif type == TokenType.EXIT:
+        elif tok.type == TokenType.EXIT:
             self._consume(TokenType.SEMICOLON,
                           "Expect ';' after 'exit' statement.")
         else:
@@ -296,7 +297,7 @@ class Parser:
                                                 condition,
                                                 tuple(increment),
                                                 body)
-        self._tokens[begin:end] = unit
+        self._tokens[begin:end] = (unit,)
         self._current = begin + 1
 
     def _while_stmt(self):
@@ -428,13 +429,13 @@ class Parser:
         self._consume(TokenType.RBRACE,
                       "Expect '}' after block.")
         end = self._current
-        unit = BlockStmt(self._tokens[begin:end], tuple(statements))
+        unit = BlockStmt(self._tokens[begin+1:end-1], tuple(statements))
         self._tokens[begin:end] = (unit,)
         self._current = begin + 1
 
     def _expr_stmt(self):
-        begin = self._current
         self._expression()
+        begin = self._current - 1
         self._consume(TokenType.SEMICOLON,
                       "Expect ';' after expression.")
         end = self._current
@@ -446,8 +447,8 @@ class Parser:
         self._assignment()
 
     def _assignment(self):
-        begin = self._current
         self._logical_or()
+        begin = self._current - 1
         if self._match(TokenType.ASSIGN):
             self._assignment()
             value = self._current - begin - 1
@@ -457,8 +458,8 @@ class Parser:
             self._current = begin + 1
 
     def _logical_or(self):
-        begin = self._current
         self._logical_and()
+        begin = self._current - 1
         while self._match(TokenType.OR):
             op = self._current - begin - 1
             self._logical_and()
@@ -469,8 +470,8 @@ class Parser:
             self._current = begin + 1
 
     def _logical_and(self):
-        begin = self._current
         self._bitwise_and()
+        begin = self._current - 1
         while self._match(TokenType.AND):
             op = self._current - begin - 1
             self._bitwise_or()
@@ -481,8 +482,8 @@ class Parser:
             self._current = begin + 1
 
     def _bitwise_or(self):
-        begin = self._current
         self._bitwise_and()
+        begin = self._current - 1
         while self._match(TokenType.BIT_OR):
             op = self._current - begin - 1
             self._bitwise_and()
@@ -493,8 +494,8 @@ class Parser:
             self._current = begin + 1
 
     def _bitwise_and(self):
-        begin = self._current
         self._equality()
+        begin = self._current - 1
         while self._match(TokenType.BIT_AND):
             op = self._current - begin - 1
             self._equality()
@@ -505,8 +506,8 @@ class Parser:
             self._current = begin + 1
 
     def _equality(self):
-        begin = self._current
         self._comparison()
+        begin = self._current - 1
         while self._match(TokenType.EQUAL, TokenType.NOT_EQUAL):
             op = self._current - begin - 1
             self._comparison()
@@ -517,8 +518,8 @@ class Parser:
             self._current = begin + 1
 
     def _comparison(self):
-        begin = self._current
         self._shift()
+        begin = self._current - 1
         while self._match(TokenType.MORE, TokenType.MORE_EQUAL,
                           TokenType.LESS, TokenType.LESS_EQUAL):
             op = self._current - begin - 1
@@ -530,8 +531,8 @@ class Parser:
             self._current = begin + 1
 
     def _shift(self):
-        begin = self._current
         self._addition()
+        begin = self._current - 1
         while self._match(TokenType.SHL, TokenType.SHR):
             op = self._current - begin - 1
             self._addition()
@@ -542,8 +543,8 @@ class Parser:
             self._current = begin + 1
 
     def _addition(self):
-        begin = self._current
         self._multiplication()
+        begin = self._current - 1
         while self._match(TokenType.PLUS, TokenType.MINUS):
             op = self._current - begin - 1
             self._multiplication()
@@ -554,8 +555,8 @@ class Parser:
             self._current = begin + 1
 
     def _multiplication(self):
-        begin = self._current
         self._unary()
+        begin = self._current - 1
         while self._match(TokenType.MUL, TokenType.DIV, TokenType.MOD):
             op = self._current - begin - 1
             self._unary()
