@@ -1,10 +1,9 @@
 __all__ = [
-    "Point",
-    "Rect",
-    "MinMax",
-    "rgb_to_dword",
-    "random_point",
-    "near_point",
+    "Point", "Rect", "MinMax",
+    "str_to_bool", "str_to_heredoc",
+    "bytes_xor", "bytes_to_int", "bytes_to_uint",
+    "int_to_bytes", "uint_to_bytes", "rgb_to_dword",
+    "random_point", "near_point",
 ]
 
 from random import randint
@@ -70,14 +69,68 @@ class MinMax:
     __slots__ = "min", "max"
 
     def __init__(self, min, max):
+        """
+        :type min: int | float | str
+        :type max: int | float | str
+        """
         self.min = min
+        """:type : T"""
         self.max = max
+        """:type : T"""
 
     def __repr__(self):
         return f"MinMax({self.min}, {self.max})"
 
     def __str__(self):
         return f"{self.min}..{self.max}"
+
+    @classmethod
+    def from_str(cls, s, f=str):
+        """
+        :type s: str
+        :type f: type
+        :rtype: MinMax
+        """
+        min, max = s.split('..', 1)
+        return cls(f(min), f(max))
+
+
+def str_to_bool(s):
+    """
+    :type s: str
+    :rtype: bool
+    """
+    return s.lower() in ("true", "yes")
+
+
+def bytes_xor(a, b):
+    """
+    :type a: bytes
+    :type b: bytes
+    :rtype : bytes
+    """
+    return bytes(_a ^ _b for (_a, _b) in zip(a, b))
+
+
+def bytes_to_int(a):
+    return int.from_bytes(a, 'little', signed=True)
+
+
+def bytes_to_uint(a):
+    return int.from_bytes(a, 'little', signed=False)
+
+
+def int_to_bytes(a):
+    return a.to_bytes(4, 'little', signed=True)
+
+
+def uint_to_bytes(a):
+    return a.to_bytes(4, 'little', signed=False)
+
+
+def str_to_heredoc(s):
+    result = ['<<<', s, '>>>']
+    return '\x0d\x0a'.join(result)
 
 
 def rgb_to_dword(r, g, b):
