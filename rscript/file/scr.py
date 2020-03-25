@@ -11,10 +11,11 @@ from rscript.file.utils import MinMax, str_to_bool
 
 
 class CompiledScript:
-    version = 6
+    supported = (6, 7)
 
     def __init__(self):
         self.basepath = ""
+        self.version = 6
 
         self.globalvars = []
         """:type : list[Var]"""
@@ -69,7 +70,7 @@ class CompiledScript:
         """
         s = stream.from_io(f)
 
-        s.write_uint(self.version)
+        s.write_uint(6)
 
         pos = s.pos()
         s.write_uint(0)
@@ -145,7 +146,9 @@ class CompiledScript:
         """
         s = stream.from_io(f)
 
-        if s.read_uint() != self.version:
+        self.version = s.read_uint()
+
+        if self.version not in CompiledScript.supported:
             s.close()
             raise Exception("CompiledScript.load. Unsupported version")
 
@@ -221,6 +224,8 @@ class CompiledScript:
         :type separate: bool
         """
         bp = blockpar.BlockPar(sort=False)
+
+        bp["Version"] = str(self.version)
 
         nbp = blockpar.BlockPar(sort=False)
         for e in self.globalvars:
@@ -324,6 +329,8 @@ class CompiledScript:
         """
         root = blockpar.BlockPar(sort=False)
         root.load_txt(f)
+
+        self.version = root.get_par("Version")
 
         for block in root.get_block("GlobalVars"):
             e = Var(self, block.name)
@@ -532,7 +539,8 @@ class Star(CompiledPoint):
     def dump(self, bp):
         nbp = blockpar.BlockPar(sort=False)
         nbp["Constellation"] = str(self.constellation)
-        nbp["IsSubspace"] = str(self.is_subspace)
+        if self._script.version < 7:
+            nbp["IsSubspace"] = str(self.is_subspace)
         nbp["NoKling"] = str(self.no_kling)
         nbp["NoComeKling"] = str(self.no_come_kling)
 
@@ -555,7 +563,8 @@ class Star(CompiledPoint):
 
     def save(self, s):
         s.write_int(self.constellation)
-        s.write_bool(self.is_subspace)
+        if self._script.version < 7:
+            s.write_bool(self.is_subspace)
         s.write_bool(self.no_kling)
         s.write_bool(self.no_come_kling)
 
@@ -574,7 +583,8 @@ class Star(CompiledPoint):
 
     def load(self, s):
         self.constellation = s.read_int()
-        self.is_subspace = s.read_bool()
+        if self._script.version < 7:
+            self.is_subspace = s.read_bool()  # always false for 6?
         self.no_kling = s.read_bool()
         self.no_come_kling = s.read_bool()
 
@@ -595,7 +605,8 @@ class Star(CompiledPoint):
 
     def restore(self, bp):
         self.constellation = int(bp.get_par("Constellation"))
-        self.is_subspace = str_to_bool(bp.get_par("IsSubspace"))
+        if self._script.version < 7:
+            self.is_subspace = str_to_bool(bp.get_par("IsSubspace"))
         self.no_kling = str_to_bool(bp.get_par("NoKling"))
         self.no_come_kling = str_to_bool(bp.get_par("NoComeKling"))
 
@@ -631,37 +642,45 @@ class StarLink(CompiledPoint):
         nbp = blockpar.BlockPar(sort=False)
         nbp["EndStar"] = str(self._script.stars[self.end_star].name) + \
                           '(' + str(self.end_star) + ')'
-        nbp["Angle"] = str(self.angle)
+        if self._script.version < 7:
+            nbp["Angle"] = str(self.angle)
         nbp["Distance"] = str(self.distance)
-        nbp["Relation"] = str(self.relation)
-        nbp["Deviation"] = str(self.deviation)
-        nbp["IsHole"] = str(self.is_hole)
+        if self._script.version < 7:
+            nbp["Relation"] = str(self.relation)
+            nbp["Deviation"] = str(self.deviation)
+            nbp["IsHole"] = str(self.is_hole)
         bp[str(self.name)] = nbp
 
     def save(self, s):
         s.write_int(self.end_star)
-        s.write_int(self.angle)
+        if self._script.version < 7:
+            s.write_int(self.angle)
         s.write_int(self.distance.min)
         s.write_int(self.distance.max)
-        s.write_int(self.relation.min)
-        s.write_int(self.relation.max)
-        s.write_int(self.deviation)
+        if self._script.version < 7:
+            s.write_int(self.relation.min)
+            s.write_int(self.relation.max)
+            s.write_int(self.deviation)
         s.write_bool(self.is_hole)
 
     def load(self, s):
         self.end_star = s.read_int()
-        self.angle = s.read_int()
+        if self._script.version < 7:
+            self.angle = s.read_int()
         self.distance = MinMax(s.read_int(), s.read_int())
-        self.relation = MinMax(s.read_int(), s.read_int())
-        self.deviation = s.read_int()
+        if self._script.version < 7:
+            self.relation = MinMax(s.read_int(), s.read_int())
+            self.deviation = s.read_int()
         self.is_hole = s.read_bool()
 
     def restore(self, bp):
         self.end_star = int(bp.get_par("EndStar"))
-        self.angle = int(bp.get_par("Angle"))
+        if self._script.version < 7:
+            self.angle = int(bp.get_par("Angle"))
         self.distance = MinMax.from_str(bp.get_par("Distance"), int)
-        self.relation = MinMax.from_str(bp.get_par("Relation"), int)
-        self.deviation = int(bp.get_par("Deviation"))
+        if self._script.version < 7:
+            self.relation = MinMax.from_str(bp.get_par("Relation"), int)
+            self.deviation = int(bp.get_par("Deviation"))
         self.is_hole = str_to_bool(bp.get_par("IsHole"))
 
 
@@ -751,13 +770,15 @@ class Ship(CompiledPoint):
         nbp["Weapon"] = str(self.weapon)
         nbp["CargoHook"] = str(self.cargohook)
         nbp["EmptySpace"] = str(self.emptyspace)
-        nbp["Rating"] = str(self.rating)
+        if self._script.version < 7:
+            nbp["Rating"] = str(self.rating)
         st = blockpar.BlockPar(sort=False)
         st["Trader"] = str(self.status.trader)
         st["Warrior"] = str(self.status.warrior)
         st["Pirate"] = str(self.status.pirate)
-        nbp["Status"] = st
-        nbp["Score"] = str(self.score)
+        if self._script.version < 7:
+            nbp["Status"] = st
+            nbp["Score"] = str(self.score)
         nbp["Strength"] = str(self.strength)
         nbp["Ruins"] = str(self.ruins)
         bp[str(self.name)] = nbp
@@ -772,16 +793,18 @@ class Ship(CompiledPoint):
         s.write_uint(int(self.weapon))
         s.write_int(self.cargohook)
         s.write_int(self.emptyspace)
-        s.write_int(self.rating.min)
-        s.write_int(self.rating.max)
+        if self._script.version < 7:
+            s.write_int(self.rating.min)
+            s.write_int(self.rating.max)
         s.write_int(self.status.trader.min)
         s.write_int(self.status.trader.max)
         s.write_int(self.status.warrior.min)
         s.write_int(self.status.warrior.max)
         s.write_int(self.status.pirate.min)
         s.write_int(self.status.pirate.max)
-        s.write_int(self.score.min)
-        s.write_int(self.score.max)
+        if self._script.version < 7:
+            s.write_int(self.score.min)
+            s.write_int(self.score.max)
         s.write_single(self.strength.min)
         s.write_single(self.strength.max)
         s.write_widestr(self.ruins)
@@ -795,11 +818,13 @@ class Ship(CompiledPoint):
         self.weapon = w_(s.read_uint())
         self.cargohook = s.read_int()
         self.emptyspace = s.read_int()
-        self.rating = MinMax(s.read_int(), s.read_int())
+        if self._script.version < 7:
+            self.rating = MinMax(s.read_int(), s.read_int())
         self.status = Status(MinMax(s.read_int(), s.read_int()),
                              MinMax(s.read_int(), s.read_int()),
                              MinMax(s.read_int(), s.read_int()))
-        self.score = MinMax(s.read_int(), s.read_int())
+        if self._script.version < 7:
+            self.score = MinMax(s.read_int(), s.read_int())
         self.strength = MinMax(s.read_single(), s.read_single())
         self.ruins = s.read_widestr()
 
@@ -812,13 +837,15 @@ class Ship(CompiledPoint):
         self.weapon = w_.from_str(bp.get_par("Weapon"))
         self.cargohook = int(bp.get_par("CargoHook"))
         self.emptyspace = int(bp.get_par("EmptySpace"))
-        self.rating = MinMax.from_str(bp.get_par("Rating"), int)
+        if self._script.version < 7:
+            self.rating = MinMax.from_str(bp.get_par("Rating"), int)
         status = bp.get_block("Status")
         self.status = Status(MinMax.from_str(status.get_par("Trader"), int),
                              MinMax.from_str(status.get_par("Warrior"), int),
                              MinMax.from_str(status.get_par("Pirate"), int))
         del status
-        self.score = MinMax.from_str(bp.get_par("Score"), int)
+        if self._script.version < 7:
+            self.score = MinMax.from_str(bp.get_par("Score"), int)
         self.strength = MinMax.from_str(bp.get_par("Strength"), float)
         self.ruins = bp.get_par("Ruins")
 
@@ -995,10 +1022,12 @@ class Group(CompiledPoint):
         nbp["Weapon"] = str(self.weapon)
         nbp["CargoHook"] = str(self.cargohook)
         nbp["EmptySpace"] = str(self.emptyspace)
-        nbp["Friendship"] = str(self.friendship)
+        if self._script.version < 7:
+            nbp["Friendship"] = str(self.friendship)
         nbp["AddPlayer"] = str(self.add_player)
-        nbp["Rating"] = str(self.rating)
-        nbp["Score"] = str(self.score)
+        if self._script.version < 7:
+            nbp["Rating"] = str(self.rating)
+            nbp["Score"] = str(self.score)
         st = blockpar.BlockPar(sort=False)
         st["Trader"] = str(self.status.trader)
         st["Warrior"] = str(self.status.warrior)
@@ -1022,12 +1051,14 @@ class Group(CompiledPoint):
         s.write_uint(int(self.weapon))
         s.write_int(self.cargohook)
         s.write_int(self.emptyspace)
-        s.write_uint(int(self.friendship))
+        if self._script.version < 7:
+            s.write_uint(int(self.friendship))
         s.write_bool(self.add_player)
-        s.write_int(self.rating.min)
-        s.write_int(self.rating.max)
-        s.write_int(self.score.min)
-        s.write_int(self.score.max)
+        if self._script.version < 7:
+            s.write_int(self.rating.min)
+            s.write_int(self.rating.max)
+            s.write_int(self.score.min)
+            s.write_int(self.score.max)
         s.write_int(self.status.trader.min)
         s.write_int(self.status.trader.max)
         s.write_int(self.status.warrior.min)
@@ -1050,10 +1081,12 @@ class Group(CompiledPoint):
         self.weapon = w_(s.read_uint())
         self.cargohook = s.read_int()
         self.emptyspace = s.read_int()
-        self.friendship = f_(s.read_uint())
+        if self._script.version < 7:
+            self.friendship = f_(s.read_uint())
         self.add_player = s.read_bool()
-        self.rating = MinMax(s.read_int(), s.read_int())
-        self.score = MinMax(s.read_int(), s.read_int())
+        if self._script.version < 7:
+            self.rating = MinMax(s.read_int(), s.read_int())
+            self.score = MinMax(s.read_int(), s.read_int())
         self.status = Status(MinMax(s.read_int(), s.read_int()),
                              MinMax(s.read_int(), s.read_int()),
                              MinMax(s.read_int(), s.read_int()))
@@ -1073,10 +1106,12 @@ class Group(CompiledPoint):
         self.weapon = w_.from_str(bp.get_par("Weapon"))
         self.cargohook = int(bp.get_par("CargoHook"))
         self.emptyspace = int(bp.get_par("EmptySpace"))
-        self.friendship = f_.from_str(bp.get_par("Friendship"))
+        if self._script.version < 7:
+            self.friendship = f_.from_str(bp.get_par("Friendship"))
         self.add_player = str_to_bool(bp.get_par("AddPlayer"))
-        self.rating = MinMax.from_str(bp.get_par("Rating"), int)
-        self.score = MinMax.from_str(bp.get_par("Score"), int)
+        if self._script.version < 7:
+            self.rating = MinMax.from_str(bp.get_par("Rating"), int)
+            self.score = MinMax.from_str(bp.get_par("Score"), int)
         status = bp.get_block("Status")
         self.status = Status(MinMax.from_str(status.get_par("Trader"), int),
                              MinMax.from_str(status.get_par("Warrior"), int),
