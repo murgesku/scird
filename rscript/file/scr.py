@@ -10,57 +10,6 @@ from rscript.file.enums import *
 from rscript.file.utils import MinMax, str_to_bool
 
 
-def code_from_blockpar(bp):
-    """
-    :type bp: blockpar.BlockPar
-    """
-    curblock = iter(bp)
-    left = len(bp)
-
-    level = 0
-    stack = list()
-
-    result = list()
-
-    while level > -1:
-        if left > 0:
-            el = next(curblock)
-            result.append(4 * '\x20' * level)
-
-            if el.kind == blockpar.BlockPar.Element.Kind.PARAM:
-                result.append(el.content)
-                if level == 0 and left == 1:
-                    pass
-                else:
-                    result.append('\x0d\x0a')
-                left -= 1
-
-            elif el.kind == blockpar.BlockPar.Element.Kind.BLOCK:
-                stack.append((curblock, left))
-
-                curblock = iter(el.content)
-                left = len(el.content)
-
-                result.append('{\x0d\x0a')
-                level += 1
-                continue
-
-            else:
-                result.append('\x0d\x0a')
-        else:
-            level -= 1
-            if level > -1:
-                result.append(4 * '\x20' * level)
-                if level == 0:
-                    result.append('}')
-                else:
-                    result.append('}\x0d\x0a')
-                curblock, left = stack.pop()
-                left -= 1
-                
-    return ''.join(result)
-
-
 class CompiledScript:
     version = 6
 
@@ -207,7 +156,7 @@ class CompiledScript:
             e.load(s)
             self.globalvars.append(e)
 
-        self.globalcode = s.read_widestr().rstrip('\x0a\x0d')
+        self.globalcode = s.read_widestr()
 
         for i in range(s.read_int()):
             e = Var(self, s.read_widestr())
@@ -241,9 +190,9 @@ class CompiledScript:
             e.load(s)
             self.grouplinks.append(e)
 
-        self.initcode = s.read_widestr().rstrip('\x0a\x0d')
-        self.turncode = s.read_widestr().rstrip('\x0a\x0d')
-        self.dialogbegincode = s.read_widestr().rstrip('\x0a\x0d')
+        self.initcode = s.read_widestr()
+        self.turncode = s.read_widestr()
+        self.dialogbegincode = s.read_widestr()
 
         for i in range(s.read_int()):
             e = State(self, s.read_widestr())
@@ -281,15 +230,8 @@ class CompiledScript:
         if separate:
             self._separate_code(self.globalcode, bp,
                                 "GlobalCode", "globalcode.txt")
-            # if self.globalcode.strip() != '':
-            #     path = os.path.join(self.basepath, "globalcode.txt")
-            #     with open(path, 'wt', encoding='cp1251', newline='') as codefile:
-            #         codefile.write(self.globalcode)
-            #     bp["GlobalCode"] = path
-            # else:
-            #     bp["GlobalCode"] = ''
         else:
-            bp["GlobalCode"] = blockpar.from_code(self.globalcode)
+            bp["GlobalCode"] = self.globalcode
 
         nbp = blockpar.BlockPar(sort=False)
         for e in self.localvars:
@@ -326,41 +268,20 @@ class CompiledScript:
         if separate:
             self._separate_code(self.initcode, bp,
                                 "InitCode", "initcode.txt")
-            # if self.initcode.strip() != '':
-            #     with open(self.basepath + "initcode.txt", 'wt',
-            #               encoding='cp1251', newline='') as codefile:
-            #         codefile.write(self.initcode)
-            #     bp["InitCode"] = self.basepath + "initcode.txt"
-            # else:
-            #     bp["InitCode"] = ''
         else:
-            bp["InitCode"] = blockpar.from_code(self.initcode)
+            bp["InitCode"] = self.initcode
 
         if separate:
             self._separate_code(self.turncode, bp,
                                 "TurnCode", "turncode.txt")
-            # if self.turncode.strip() != '':
-            #     with open(self.basepath + "turncode.txt", 'wt',
-            #               encoding='cp1251', newline='') as codefile:
-            #         codefile.write(self.turncode)
-            #     bp["TurnCode"] = self.basepath + "turncode.txt"
-            # else:
-            #     bp["TurnCode"] = ''
         else:
-            bp["TurnCode"] = blockpar.from_code(self.turncode)
+            bp["TurnCode"] = self.turncode
 
         if separate:
             self._separate_code(self.dialogbegincode, bp,
                                 "DialogBegin", "dialogbegin.txt")
-            # if self.dialogbegincode.strip() != '':
-            #     with open(self.basepath + "dialogbegin.txt", 'wt',
-            #               encoding='cp1251', newline='') as codefile:
-            #         codefile.write(self.dialogbegincode)
-            #     bp["DialogBegin"] = self.basepath + "dialogbegin.txt"
-            # else:
-            #     bp["DialogBegin"] = ''
         else:
-            bp["DialogBegin"] = blockpar.from_code(self.dialogbegincode)
+            bp["DialogBegin"] = self.dialogbegincode
 
         nbp = blockpar.BlockPar(sort=False)
         for i, e in enumerate(self.states):
@@ -411,13 +332,14 @@ class CompiledScript:
 
         code = root["GlobalCode"][0]
         if code.kind is blockpar.BlockPar.Element.Kind.PARAM:
-            path = code.content
-            if path != '':
-                with open(path, 'rt',encoding='cp1251',
-                          newline='') as codefile:
-                    self.globalcode = codefile.read()
+            self.globalcode = code.content
+            # path = code.content
+            # if path != '':
+            #     with open(path, 'rt',encoding='cp1251',
+            #               newline='') as codefile:
+            #         self.globalcode = codefile.read()
         elif code.kind is blockpar.BlockPar.Element.Kind.BLOCK:
-            self.globalcode = code_from_blockpar(code.content)
+            self.globalcode = code.content
         else:
             raise Exception("CompiledScript.restore globalcode")
 
@@ -455,37 +377,25 @@ class CompiledScript:
 
         code = root["InitCode"][0]
         if code.kind is blockpar.BlockPar.Element.Kind.PARAM:
-            path = code.content
-            if path != '':
-                with open(path, 'rt', encoding='cp1251',
-                          newline='') as codefile:
-                    self.initcode = codefile.read()
+            self.initcode = code.content
         elif code.kind is blockpar.BlockPar.Element.Kind.BLOCK:
-            self.initcode = code_from_blockpar(code.content)
+            self.initcode = code.content
         else:
             raise Exception("CompiledScript.restore initcode")
 
         code = root["TurnCode"][0]
         if code.kind is blockpar.BlockPar.Element.Kind.PARAM:
-            path = code.content
-            if path != '':
-                with open(path, 'rt', encoding='cp1251',
-                          newline='') as codefile:
-                    self.turncode = codefile.read()
+            self.turncode = code.content
         elif code.kind is blockpar.BlockPar.Element.Kind.BLOCK:
-            self.turncode = code_from_blockpar(code.content)
+            self.turncode = code.content
         else:
             raise Exception("CompiledScript.restore turncode")
 
         code = root["DialogBegin"][0]
         if code.kind is blockpar.BlockPar.Element.Kind.PARAM:
-            path = code.content
-            if path != '':
-                with open(path, 'rt', encoding='cp1251',
-                          newline='') as codefile:
-                    self.dialogbegincode = codefile.read()
+            self.dialogbegincode = code.content
         elif code.kind is blockpar.BlockPar.Element.Kind.BLOCK:
-            self.dialogbegincode = code_from_blockpar(code.content)
+            self.dialogbegincode = code.content
         else:
             raise Exception("CompiledScript.restore dialogbegin")
 
@@ -1248,7 +1158,7 @@ class State(CompiledPoint):
         nbp["OutMsg"] = str(self.out_msg)
         nbp["InMsg"] = str(self.in_msg)
         nbp["Ether"] = str(self.ether)
-        nbp["Code"] = blockpar.from_code(self.code)
+        nbp["Code"] = self.code
         bp[str(self.name)] = nbp
 
     def dump_separate(self, bp, i):
@@ -1268,13 +1178,6 @@ class State(CompiledPoint):
 
         self._script._separate_code(self.code, nbp,
                                     "Code", f"state_{str(i)}.txt")
-        # if self.code.strip() != '':
-        #     with open(self._script.basepath + f"state_{str(i)}.txt", 'wt',
-        #               encoding='cp1251', newline='') as codefile:
-        #         codefile.write(self.code)
-        #     nbp["Code"] = self._script.basepath + f"state_{str(i)}.txt"
-        # else:
-        #     nbp["Code"] = ''
 
         bp[str(self.name)] = nbp
 
@@ -1303,7 +1206,7 @@ class State(CompiledPoint):
         self.out_msg = s.read_widestr()
         self.in_msg = s.read_widestr()
         self.ether = s.read_widestr()
-        self.code = s.read_widestr().rstrip('\x0a\x0d')
+        self.code = s.read_widestr()
 
     def restore(self, bp):
         self.type = mt_.from_str(bp.get_par("Type"))
@@ -1319,14 +1222,9 @@ class State(CompiledPoint):
 
         code = bp["Code"][0]
         if code.kind is blockpar.BlockPar.Element.Kind.PARAM:
-            path = code.content
-            if path == '':
-                return
-            with open(path, 'rt', encoding='cp1251',
-                      newline='') as codefile:
-                self.code = codefile.read()
+            self.code = code.content
         elif code.kind is blockpar.BlockPar.Element.Kind.BLOCK:
-            self.code = code_from_blockpar(code.content)
+            self.code = code.content
         else:
             raise Exception("State.restore")
 
@@ -1338,7 +1236,7 @@ class Dialog(CompiledPoint):
 
     def dump(self, bp):
         nbp = blockpar.BlockPar(sort=False)
-        nbp["Code"] = blockpar.from_code(self.code)
+        nbp["Code"] = self.code
         bp[str(self.name)] = nbp
 
     def dump_separate(self, bp):
@@ -1346,13 +1244,6 @@ class Dialog(CompiledPoint):
 
         self._script._separate_code(self.code, nbp,
                                     "Code", f"dialog_{self.name}.txt")
-        # if self.code.strip() != '':
-        #     with open(self._script.basepath + f"dialog_{self.name}.txt", 'wt',
-        #               encoding='cp1251', newline='') as codefile:
-        #         codefile.write(self.code)
-        #     nbp["Code"] = self._script.basepath + f"dialog_{self.name}.txt"
-        # else:
-        #     nbp["Code"] = ''
 
         bp[str(self.name)] = nbp
 
@@ -1360,19 +1251,14 @@ class Dialog(CompiledPoint):
         s.write_widestr(self.code)
 
     def load(self, s):
-        self.code = s.read_widestr().rstrip('\x0a\x0d')
+        self.code = s.read_widestr()
 
     def restore(self, bp):
         code = bp["Code"][0]
         if code.kind is blockpar.BlockPar.Element.Kind.PARAM:
-            path = code.content
-            if path == '':
-                return
-            with open(path, 'rt', encoding='cp1251',
-                      newline='') as codefile:
-                self.code = codefile.read()
+            self.code = code.content
         elif code.kind is blockpar.BlockPar.Element.Kind.BLOCK:
-            self.code = code_from_blockpar(code.content)
+            self.code = code.content
         else:
             raise Exception("Dialog.restore")
 
@@ -1386,7 +1272,7 @@ class DialogMsg(CompiledPoint):
     def dump(self, bp):
         nbp = blockpar.BlockPar(sort=False)
         nbp["Name"] = str(self.command)
-        nbp["Code"] = blockpar.from_code(self.code)
+        nbp["Code"] = self.code
         bp[str(self.name)] = nbp
 
     def dump_separate(self, bp):
@@ -1395,13 +1281,6 @@ class DialogMsg(CompiledPoint):
 
         self._script._separate_code(self.code, nbp,
                                     "Code", f"dialogmsg_{self.name}.txt")
-        # if self.code.strip() != '':
-        #     with open(self._script.basepath + f"dialogmsg_{self.name}.txt", 'wt',
-        #               encoding='cp1251', newline='') as codefile:
-        #         codefile.write(self.code)
-        #     nbp["Code"] = self._script.basepath + f"dialogmsg_{self.name}.txt"
-        # else:
-        #     nbp["Code"] = ''
 
         bp[str(self.name)] = nbp
 
@@ -1411,20 +1290,15 @@ class DialogMsg(CompiledPoint):
 
     def load(self, s):
         self.command = s.read_widestr()
-        self.code = s.read_widestr().rstrip('\x0a\x0d')
+        self.code = s.read_widestr()
 
     def restore(self, bp):
         self.command = bp.get_par("Name")
         code = bp["Code"][0]
         if code.kind is blockpar.BlockPar.Element.Kind.PARAM:
-            path = code.content
-            if path == '':
-                return
-            with open(path, 'rt', encoding='cp1251',
-                      newline='') as codefile:
-                self.code = codefile.read()
+            self.code = code.content
         elif code.kind is blockpar.BlockPar.Element.Kind.BLOCK:
-            self.code = code_from_blockpar(code.content)
+            self.code = code.content
         else:
             raise Exception("DialogMsg.restore")
 
@@ -1440,7 +1314,7 @@ class DialogAnswer(CompiledPoint):
         nbp = blockpar.BlockPar(sort=False)
         nbp["Command"] = str(self.command)
         nbp["Answer"] = str(self.answer)
-        nbp["Code"] = blockpar.from_code(self.code)
+        nbp["Code"] = self.code
         bp[str(self.name)] = nbp
 
     def dump_separate(self, bp):
@@ -1450,13 +1324,6 @@ class DialogAnswer(CompiledPoint):
 
         self._script._separate_code(self.code, nbp,
                                     "Code", f"dialoganswer_{self.name}.txt")
-        # if self.code.strip() != '':
-        #     with open(self._script.basepath + f"dialoganswer_{self.name}.txt", 'wt',
-        #               encoding='cp1251', newline='') as codefile:
-        #         codefile.write(self.code)
-        #     nbp["Code"] = self._script.basepath + f"dialoganswer_{self.name}.txt"
-        # else:
-        #     nbp["Code"] = ''
 
         bp[str(self.name)] = nbp
 
@@ -1468,7 +1335,7 @@ class DialogAnswer(CompiledPoint):
     def load(self, s):
         self.command = s.read_widestr()
         self.answer = s.read_widestr().strip()
-        self.code = s.read_widestr().rstrip('\x0a\x0d')
+        self.code = s.read_widestr()
 
     def restore(self, bp):
         self.command = bp.get_par("Command")
@@ -1482,7 +1349,7 @@ class DialogAnswer(CompiledPoint):
                       newline='') as codefile:
                 self.code = codefile.read()
         elif code.kind is blockpar.BlockPar.Element.Kind.BLOCK:
-            self.code = code_from_blockpar(code.content)
+            self.code = code.content
         else:
             raise Exception("DialogMsg.restore")
 

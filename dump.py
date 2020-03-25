@@ -15,9 +15,9 @@ def main():
                         help="Path to compiled script")
     parser.add_argument("-o", "--output", default="", dest="outfile",
                         help="Path to output file", nargs="?")
-    parser.add_argument("--separate", dest="separate", action="store_true",
-                        default=False,
-                        help="Separate code into individual files")
+    # parser.add_argument("--separate", dest="separate", action="store_true",
+    #                     default=False,
+    #                     help="Separate code into individual files")
     args = parser.parse_args()
 
     basepath = ''
@@ -29,8 +29,8 @@ def main():
         basepath, filename = os.path.split(args.outfile)
         outfile = args.outfile
 
-    if args.separate:
-        basepath = os.path.join(basepath, scriptname, '')
+    # if args.separate:
+    #     basepath = os.path.join(basepath, scriptname, '')
 
     script = CompiledScript()
     script.basepath = basepath
@@ -43,7 +43,7 @@ def main():
         os.mkdir(script.basepath)
 
     with open(outfile, 'wt', encoding='cp1251',  newline='') as f:
-        script.dump(f, separate=args.separate)
+        script.dump(f, separate=False)
 
 
 if __name__ == '__main__':
