@@ -2,6 +2,7 @@ __all__ = [
     "CompiledScript",
 ]
 
+import json
 import os.path
 from abc import ABC, abstractmethod
 
@@ -70,7 +71,7 @@ class CompiledScript:
         """
         s = stream.from_io(f)
 
-        s.write_uint(6)
+        s.write_uint(self.version)
 
         pos = s.pos()
         s.write_uint(0)
