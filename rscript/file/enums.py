@@ -234,7 +234,7 @@ class w_(IntEnum):
     YES = 1
     NO = 2
 
-_map_w = {w_.UNDEF: "NoMatter", w_.YES: "HasWeapon", w_.NO: "NoWeapon"}
+_map_w = {w_.UNDEF: "Undef", w_.YES: "Yes", w_.NO: "No"}
 _rmap_w = {v: k for k, v in _map_w.items()}
 
 def _w_str(self):
