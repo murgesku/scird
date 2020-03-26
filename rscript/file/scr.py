@@ -2,7 +2,6 @@ __all__ = [
     "CompiledScript",
 ]
 
-import json
 import os.path
 from abc import ABC, abstractmethod
 
@@ -649,7 +648,7 @@ class StarLink(CompiledPoint):
         if self._script.version < 7:
             nbp["Relation"] = str(self.relation)
             nbp["Deviation"] = str(self.deviation)
-            nbp["IsHole"] = str(self.is_hole)
+        nbp["IsHole"] = str(self.is_hole)
         bp[str(self.name)] = nbp
 
     def save(self, s):
