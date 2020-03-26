@@ -81,7 +81,6 @@ class Stream:
         """
         :type v: float
         """
-        assert 0 <= v <= 3.4e38
         self._io.write(pack('<f', v))
 
     def write_double(self, v):
