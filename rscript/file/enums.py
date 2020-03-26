@@ -322,14 +322,15 @@ class op_(IntEnum):
 
 # Variable type
 class var_(IntEnum):
-    UNKNOWN = 0  #, "Unknown"
-    INTEGER = 1  #, "Integer"
-    DWORD = 2  #, "Dword"
-    FLOAT = 3  #, "Float"
-    STRING = 4  #, "String"
+    UNKNOWN = 0
+    INTEGER = 1
+    DWORD = 2
+    FLOAT = 3
+    STRING = 4
+    ARRAY = 9
 
-_map_var = {var_.UNKNOWN: "Unknown", var_.INTEGER: "Integer",
-            var_.DWORD: "Dword", var_.FLOAT: "Float", var_.STRING: "String"}
+_map_var = {var_.UNKNOWN: "Unknown", var_.INTEGER: "Integer", var_.DWORD: "Dword",
+            var_.FLOAT: "Float", var_.STRING: "String", var_.ARRAY: "Array"}
 _rmap_var = {v: k for k, v in _map_var.items()}
 
 def _var_str(self):
@@ -349,6 +350,7 @@ class svar_(IntEnum):
     DWORD = 2
     STRING = 3
     FLOAT = 4
+    ARRAY = 5
 
 
 # Ether type

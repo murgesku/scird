@@ -45,25 +45,6 @@ class CompiledScript:
         self.dialog_answers = []
         """:type : list[DialogAnswer]"""
 
-    def _separate_code(self, content, root, section, filename):
-        """
-        :type content: str
-        :type root: blockpar.BlockPar
-        :param section: Section in root BlockPar
-        :type section: str
-        :type filename: str
-        """
-        if content.strip() != '':
-            if content.count('\x0d\x0a') < 7:
-                root[section] = content
-            else:
-                path = os.path.join(self.basepath, filename)
-                with open(path, 'wt', encoding='cp1251', newline='') as f:
-                    f.write(content)
-                root[section] = path
-        else:
-            root[section] = ''
-
     def save(self, f):
         """
         :type f: io.BinaryIO
@@ -217,11 +198,9 @@ class CompiledScript:
             e.load(s)
             self.dialog_answers.append(e)
 
-    def dump(self, f, *, separate=False):
+    def dump(self, f):
         """
         :type f: io.TextIO
-        :param separate: Separate code into individual files
-        :type separate: bool
         """
         bp = blockpar.BlockPar(sort=False)
 
@@ -232,11 +211,7 @@ class CompiledScript:
             e.dump(nbp)
         bp["GlobalVars"] = nbp
 
-        if separate:
-            self._separate_code(self.globalcode, bp,
-                                "GlobalCode", "globalcode.txt")
-        else:
-            bp["GlobalCode"] = self.globalcode
+        bp["GlobalCode"] = self.globalcode
 
         nbp = blockpar.BlockPar(sort=False)
         for e in self.localvars:
@@ -270,54 +245,30 @@ class CompiledScript:
             e.dump(nbp)
         bp["GroupLinks"] = nbp
 
-        if separate:
-            self._separate_code(self.initcode, bp,
-                                "InitCode", "initcode.txt")
-        else:
-            bp["InitCode"] = self.initcode
+        bp["InitCode"] = self.initcode
 
-        if separate:
-            self._separate_code(self.turncode, bp,
-                                "TurnCode", "turncode.txt")
-        else:
-            bp["TurnCode"] = self.turncode
+        bp["TurnCode"] = self.turncode
 
-        if separate:
-            self._separate_code(self.dialogbegincode, bp,
-                                "DialogBegin", "dialogbegin.txt")
-        else:
-            bp["DialogBegin"] = self.dialogbegincode
+        bp["DialogBegin"] = self.dialogbegincode
 
         nbp = blockpar.BlockPar(sort=False)
         for i, e in enumerate(self.states):
-            if separate:
-                e.dump_separate(nbp, i)
-            else:
-                e.dump(nbp)
+            e.dump(nbp)
         bp["States"] = nbp
 
         nbp = blockpar.BlockPar(sort=False)
         for e in self.dialogs:
-            if separate:
-                e.dump_separate(nbp)
-            else:
-                e.dump(nbp)
+            e.dump(nbp)
         bp["Dialogs"] = nbp
 
         nbp = blockpar.BlockPar(sort=False)
         for e in self.dialog_msgs:
-            if separate:
-                e.dump_separate(nbp)
-            else:
-                e.dump(nbp)
+            e.dump(nbp)
         bp["DialogMsgs"] = nbp
 
         nbp = blockpar.BlockPar(sort=False)
         for e in self.dialog_answers:
-            if separate:
-                e.dump_separate(nbp)
-            else:
-                e.dump(nbp)
+            e.dump(nbp)
         bp["DialogAnswers"] = nbp
 
         bp.save_txt(f)
@@ -330,7 +281,7 @@ class CompiledScript:
         root = blockpar.BlockPar(sort=False)
         root.load_txt(f)
 
-        self.version = root.get_par("Version")
+        self.version = int(root.get_par("Version"))
 
         for block in root.get_block("GlobalVars"):
             e = Var(self, block.name)
@@ -340,11 +291,6 @@ class CompiledScript:
         code = root["GlobalCode"][0]
         if code.kind is blockpar.BlockPar.Element.Kind.PARAM:
             self.globalcode = code.content
-            # path = code.content
-            # if path != '':
-            #     with open(path, 'rt',encoding='cp1251',
-            #               newline='') as codefile:
-            #         self.globalcode = codefile.read()
         elif code.kind is blockpar.BlockPar.Element.Kind.BLOCK:
             self.globalcode = code.content
         else:
@@ -498,6 +444,11 @@ class Var(CompiledPoint):
             s.write_double(self.value)
         elif self.type is var_.STRING:
             s.write_widestr(self.value)
+        elif self.type is var_.ARRAY:
+            s.write_int(self.value)
+            for i in range(self.value):
+                s.write_widestr('')
+                s.write_byte(0)
 
     def load(self, s):
         self.type = var_(s.read_byte())
@@ -509,6 +460,11 @@ class Var(CompiledPoint):
             self.value = s.read_double()
         elif self.type is var_.STRING:
             self.value = s.read_widestr()
+        elif self.type is var_.ARRAY:
+            self.value = s.read_int()
+            for i in range(self.value):
+                s.read_widestr()
+                s.read_byte()
 
     def restore(self, bp):
         self.type = var_.from_str(bp.get_par("Type"))
@@ -520,6 +476,8 @@ class Var(CompiledPoint):
             self.value = float(bp.get_par("Value"))
         elif self.type is var_.STRING:
             self.value = bp.get_par("Value")
+        elif self.type is var_.ARRAY:
+            self.value = int(bp.get_par("Value"))
 
 
 class Star(CompiledPoint):
@@ -641,7 +599,7 @@ class StarLink(CompiledPoint):
     def dump(self, bp):
         nbp = blockpar.BlockPar(sort=False)
         nbp["EndStar"] = str(self._script.stars[self.end_star].name) + \
-                          '(' + str(self.end_star) + ')'
+                         ' (' + str(self.end_star) + ')'
         if self._script.version < 7:
             nbp["Angle"] = str(self.angle)
         nbp["Distance"] = str(self.distance)
@@ -776,8 +734,8 @@ class Ship(CompiledPoint):
         st["Trader"] = str(self.status.trader)
         st["Warrior"] = str(self.status.warrior)
         st["Pirate"] = str(self.status.pirate)
+        nbp["Status"] = st
         if self._script.version < 7:
-            nbp["Status"] = st
             nbp["Score"] = str(self.score)
         nbp["Strength"] = str(self.strength)
         nbp["Ruins"] = str(self.ruins)
@@ -1196,26 +1154,6 @@ class State(CompiledPoint):
         nbp["Code"] = self.code
         bp[str(self.name)] = nbp
 
-    def dump_separate(self, bp, i):
-        nbp = blockpar.BlockPar(sort=False)
-        nbp["Type"] = str(self.type)
-        if self.type not in (mt_.NONE, mt_.FREE):
-            nbp["Object"] = str(self.object)
-        attack = blockpar.BlockPar(sort=False)
-        for i, a in enumerate(self.attack):
-            attack[str(i)] = str(a)
-        nbp["Attack"] = attack
-        nbp["TakeItem"] = str(self.take_item)
-        nbp["TakeAll"] = str(self.take_all)
-        nbp["OutMsg"] = str(self.out_msg)
-        nbp["InMsg"] = str(self.in_msg)
-        nbp["Ether"] = str(self.ether)
-
-        self._script._separate_code(self.code, nbp,
-                                    "Code", f"state_{str(i)}.txt")
-
-        bp[str(self.name)] = nbp
-
     def save(self, s):
         s.write_uint(int(self.type))
         if self.type not in (mt_.NONE, mt_.FREE):
@@ -1274,14 +1212,6 @@ class Dialog(CompiledPoint):
         nbp["Code"] = self.code
         bp[str(self.name)] = nbp
 
-    def dump_separate(self, bp):
-        nbp = blockpar.BlockPar(sort=False)
-
-        self._script._separate_code(self.code, nbp,
-                                    "Code", f"dialog_{self.name}.txt")
-
-        bp[str(self.name)] = nbp
-
     def save(self, s):
         s.write_widestr(self.code)
 
@@ -1308,15 +1238,6 @@ class DialogMsg(CompiledPoint):
         nbp = blockpar.BlockPar(sort=False)
         nbp["Name"] = str(self.command)
         nbp["Code"] = self.code
-        bp[str(self.name)] = nbp
-
-    def dump_separate(self, bp):
-        nbp = blockpar.BlockPar(sort=False)
-        nbp["Name"] = str(self.command)
-
-        self._script._separate_code(self.code, nbp,
-                                    "Code", f"dialogmsg_{self.name}.txt")
-
         bp[str(self.name)] = nbp
 
     def save(self, s):
@@ -1350,16 +1271,6 @@ class DialogAnswer(CompiledPoint):
         nbp["Command"] = str(self.command)
         nbp["Answer"] = str(self.answer)
         nbp["Code"] = self.code
-        bp[str(self.name)] = nbp
-
-    def dump_separate(self, bp):
-        nbp = blockpar.BlockPar(sort=False)
-        nbp["Command"] = str(self.command)
-        nbp["Answer"] = str(self.answer)
-
-        self._script._separate_code(self.code, nbp,
-                                    "Code", f"dialoganswer_{self.name}.txt")
-
         bp[str(self.name)] = nbp
 
     def save(self, s):
