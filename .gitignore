@@ -7,3 +7,5 @@ __pycache__/
 *.s[vc]r
 *.txt
 *.dat
+
+!requirements.txt

@@ -1,0 +1,1 @@
+-e git+https://github.com/murgesku/rangers-utils#egg=rangers-utils
