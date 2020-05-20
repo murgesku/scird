@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 
 from rangers import stream, blockpar
 from rscript.file.enums import *
-from rscript.file.utils import MinMax, str_to_bool
+from rscript.file.utils import MinMax, Status, str_to_bool
 
 
 class CompiledScript:

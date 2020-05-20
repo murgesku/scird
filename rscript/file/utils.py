@@ -1,5 +1,5 @@
 __all__ = [
-    "Point", "Rect", "MinMax",
+    "Point", "Rect", "MinMax", "Status",
     "str_to_bool", "str_to_heredoc",
     "bytes_xor", "bytes_to_int", "bytes_to_uint",
     "int_to_bytes", "uint_to_bytes", "rgb_to_dword",
@@ -93,6 +93,15 @@ class MinMax:
         """
         min, max = s.split('..', 1)
         return cls(f(min), f(max))
+
+
+class Status:
+    __slots__ = "trader", "warrior", "pirate"
+
+    def __init__(self, trader, warrior, pirate):
+        self.trader = trader
+        self.warrior = warrior
+        self.pirate = pirate
 
 
 def str_to_bool(s):

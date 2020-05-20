@@ -11,8 +11,6 @@ from rangers import stream
 from rangers.blockpar import BlockPar
 from rscript.file.enums import *
 from rscript.file.utils import *
-from rscript.file.scr import Status
-
 
 class SourceScript:
     version = 6
