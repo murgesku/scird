@@ -7,7 +7,7 @@ __all__ = [
     "Dialog", "DialogMsg", "DialogAnswer",
 ]
 
-from rangers import stream
+from rangers.io import Stream
 from rangers.blockpar import BlockPar
 from rscript.file.enums import *
 from rscript.file.utils import *
@@ -29,10 +29,10 @@ class SourceScript:
         self.graphlinks = []
         self.graphrects = []
 
-    def add(self, cls, pos=None):
+    def add(self, clsname, pos=None):
         if not pos:
             pos = random_point()
-        gp = cls(self, pos)
+        gp = classnames[clsname](self, pos)
         self.graphpoints.append(gp)
         return gp
 
@@ -63,25 +63,32 @@ class SourceScript:
             return -1
         return self.graphpoints.index(gp)
 
-    def save(self, f):
-        s = stream.from_io(f)
+    def find_link_begin(self, gp, clsname):
+        cls = classnames[clsname]
+        for gl in self.graphlinks:
+            # noinspection PyTypeHints
+            if (gl.begin is gp) and isinstance(gl.end, cls):
+                return gl
 
-        s.write(b'\x55\x44\x33\x22')
-        s.write_uint(self.version)
-        s.write_int(self.viewpos.x)
-        s.write_int(self.viewpos.y)
-        s.write_widestr(self.name)
-        s.write_widestr(self.filename)
+    def save(self, f):
+        s = Stream.from_io(f)
+
+        s.add(b'\x55\x44\x33\x22')
+        s.add_uint(self.version)
+        s.add_int(self.viewpos.x)
+        s.add_int(self.viewpos.y)
+        s.add_widestr(self.name)
+        s.add_widestr(self.filename)
         self.textfilenames.save(s)
         self.translations.save(s)
         self.translations_id.save(s)
-        s.write_uint(len(self.graphpoints))
+        s.add_uint(len(self.graphpoints))
         for gp in self.graphpoints:
             gp.save(s)
-        s.write_uint(len(self.graphlinks))
+        s.add_uint(len(self.graphlinks))
         for gl in self.graphlinks:
             gl.save(s)
-        s.write_uint(len(self.graphrects))
+        s.add_uint(len(self.graphrects))
         for gr in self.graphrects:
             gr.dump(s)
 
@@ -106,11 +113,11 @@ class GraphPoint(object):
         self.parent = parent
 
     def save(self, s):
-        s.write_widestr(self.classname)
-        s.write_int(self.pos.x)
-        s.write_int(self.pos.y)
-        s.write_widestr(self.text)
-        s.write_int(-1)
+        s.add_widestr(self.classname)
+        s.add_int(self.pos.x)
+        s.add_int(self.pos.y)
+        s.add_widestr(self.text)
+        s.add_int(-1)
 
 
 class GraphLink(object):
@@ -124,11 +131,11 @@ class GraphLink(object):
         self.has_arrow = has_arrow
 
     def save(self, s):
-        s.write_widestr(self.classname)
-        s.write_int(self._script.index(self.begin))
-        s.write_int(self._script.index(self.end))
-        s.write_uint(self.ord_num)
-        s.write_bool(self.has_arrow)
+        s.add_widestr(self.classname)
+        s.add_int(self._script.index(self.begin))
+        s.add_int(self._script.index(self.end))
+        s.add_uint(self.ord_num)
+        s.add_bool(self.has_arrow)
 
 
 class GraphRect(object):
@@ -155,27 +162,27 @@ class GraphRect(object):
         self.is_underline = False
 
     def save(self, s):
-        s.write_widestr(self.classname)
-        s.write_int(self.rect.top)
-        s.write_int(self.rect.left)
-        s.write_int(self.rect.right)
-        s.write_int(self.rect.bottom)
-        s.write_byte(self.fill_style)
-        s.write_uint(self.fill_color)
-        s.write_byte(self.border_style)
-        s.write_uint(self.border_color)
-        s.write_uint(self.border_size)
-        s.write_single(self.border_coef)
-        s.write_uint(self.text_align_x)
-        s.write_uint(self.text_align_y)
-        s.write_bool(self.text_align_rect)
-        s.write_widestr(self.text)
-        s.write_uint(self.text_color)
-        s.write_widestr(self.font)
-        s.write_uint(self.font_size)
-        s.write_bool(self.is_bold)
-        s.write_bool(self.is_italic)
-        s.write_bool(self.is_underline)
+        s.add_widestr(self.classname)
+        s.add_int(self.rect.top)
+        s.add_int(self.rect.left)
+        s.add_int(self.rect.right)
+        s.add_int(self.rect.bottom)
+        s.add_byte(self.fill_style)
+        s.add_uint(self.fill_color)
+        s.add_byte(self.border_style)
+        s.add_uint(self.border_color)
+        s.add_uint(self.border_size)
+        s.add_single(self.border_coef)
+        s.add_uint(self.text_align_x)
+        s.add_uint(self.text_align_y)
+        s.add_bool(self.text_align_rect)
+        s.add_widestr(self.text)
+        s.add_uint(self.text_color)
+        s.add_widestr(self.font)
+        s.add_uint(self.font_size)
+        s.add_bool(self.is_bold)
+        s.add_bool(self.is_italic)
+        s.add_bool(self.is_underline)
 
 
 class Star(GraphPoint):
@@ -191,11 +198,11 @@ class Star(GraphPoint):
 
     def save(self, s):
         GraphPoint.save(self, s)
-        s.write_uint(self.constellation)
-        s.write_uint(self.priority)
-        s.write_bool(self.is_subspace)
-        s.write_bool(self.no_kling)
-        s.write_bool(self.no_come_kling)
+        s.add_uint(self.constellation)
+        s.add_uint(self.priority)
+        s.add_bool(self.is_subspace)
+        s.add_bool(self.no_kling)
+        s.add_bool(self.no_come_kling)
 
 
 class Planet(GraphPoint):
@@ -212,13 +219,13 @@ class Planet(GraphPoint):
 
     def save(self, s):
         GraphPoint.save(self, s)
-        s.write_uint(int(self.race))
-        s.write_uint(int(self.owner))
-        s.write_uint(int(self.economy))
-        s.write_uint(int(self.government))
-        s.write_int(self.range.min)
-        s.write_int(self.range.max)
-        s.write_int(self._script.index(self.dialog))
+        s.add_uint(int(self.race))
+        s.add_uint(int(self.owner))
+        s.add_uint(int(self.economy))
+        s.add_uint(int(self.government))
+        s.add_int(self.range.min)
+        s.add_int(self.range.max)
+        s.add_int(self._script.index(self.dialog))
 
 
 class Ship(GraphPoint):
@@ -244,28 +251,28 @@ class Ship(GraphPoint):
 
     def save(self, s):
         GraphPoint.save(self, s)
-        s.write_int(self.count)
-        s.write_uint(int(self.owner))
-        s.write_uint(int(self.type))
-        s.write_bool(self.is_player)
-        s.write_int(self.speed.min)
-        s.write_int(self.speed.max)
-        s.write_uint(self.weapon)
-        s.write_uint(self.cargohook)
-        s.write_int(self.emptyspace)
-        s.write_int(self.rating.min)
-        s.write_int(self.rating.max)
-        s.write_int(self.status.trader.min)
-        s.write_int(self.status.trader.max)
-        s.write_int(self.status.warrior.min)
-        s.write_int(self.status.warrior.max)
-        s.write_int(self.status.pirate.min)
-        s.write_int(self.status.pirate.max)
-        s.write_int(self.score.min)
-        s.write_int(self.score.max)
-        s.write_single(self.strength.min)
-        s.write_single(self.strength.max)
-        s.write_widestr(self.ruins)
+        s.add_int(self.count)
+        s.add_uint(int(self.owner))
+        s.add_uint(int(self.type))
+        s.add_bool(self.is_player)
+        s.add_int(self.speed.min)
+        s.add_int(self.speed.max)
+        s.add_uint(self.weapon)
+        s.add_uint(self.cargohook)
+        s.add_int(self.emptyspace)
+        s.add_int(self.rating.min)
+        s.add_int(self.rating.max)
+        s.add_int(self.status.trader.min)
+        s.add_int(self.status.trader.max)
+        s.add_int(self.status.warrior.min)
+        s.add_int(self.status.warrior.max)
+        s.add_int(self.status.pirate.min)
+        s.add_int(self.status.pirate.max)
+        s.add_int(self.score.min)
+        s.add_int(self.score.max)
+        s.add_single(self.strength.min)
+        s.add_single(self.strength.max)
+        s.add_widestr(self.ruins)
 
 
 class Item(GraphPoint):
@@ -283,13 +290,13 @@ class Item(GraphPoint):
 
     def save(self, s):
         GraphPoint.save(self, s)
-        s.write_uint(self.kind)
-        s.write_uint(self.type)
-        s.write_int(self.size)
-        s.write_uint(self.level)
-        s.write_int(self.radius)
-        s.write_uint(int(self.owner))
-        s.write_widestr(self.useless)
+        s.add_uint(self.kind)
+        s.add_uint(self.type)
+        s.add_int(self.size)
+        s.add_uint(self.level)
+        s.add_int(self.radius)
+        s.add_uint(int(self.owner))
+        s.add_widestr(self.useless)
 
 
 class Place(GraphPoint):
@@ -305,11 +312,11 @@ class Place(GraphPoint):
 
     def save(self, s):
         GraphPoint.save(self, s)
-        s.write_uint(self.type)
-        s.write_single(self.angle)
-        s.write_single(self.dist)
-        s.write_int(self.radius)
-        s.write_int(self._script.index(self.obj))
+        s.add_uint(self.type)
+        s.add_single(self.angle)
+        s.add_single(self.dist)
+        s.add_int(self.radius)
+        s.add_int(self._script.index(self.obj))
 
 
 class Group(GraphPoint):
@@ -338,32 +345,32 @@ class Group(GraphPoint):
 
     def save(self, s):
         GraphPoint.save(self, s)
-        s.write_uint(int(self.owner))
-        s.write_uint(int(self.type))
-        s.write_int(self.count.min)
-        s.write_int(self.count.max)
-        s.write_int(self.speed.min)
-        s.write_int(self.speed.max)
-        s.write_uint(int(self.weapon))
-        s.write_uint(self.cargohook)
-        s.write_int(self.emptyspace)
-        s.write_uint(int(self.friendship))
-        s.write_bool(self.add_player)
-        s.write_int(self.rating.min)
-        s.write_int(self.rating.max)
-        s.write_int(self.status.trader.min)
-        s.write_int(self.status.trader.max)
-        s.write_int(self.status.warrior.min)
-        s.write_int(self.status.warrior.max)
-        s.write_int(self.status.pirate.min)
-        s.write_int(self.status.pirate.max)
-        s.write_int(self.score.min)
-        s.write_int(self.score.max)
-        s.write_int(self.search_dist)
-        s.write_int(self._script.index(self.dialog))
-        s.write_single(self.strength.min)
-        s.write_single(self.strength.max)
-        s.write_widestr(self.ruins)
+        s.add_uint(int(self.owner))
+        s.add_uint(int(self.type))
+        s.add_int(self.count.min)
+        s.add_int(self.count.max)
+        s.add_int(self.speed.min)
+        s.add_int(self.speed.max)
+        s.add_uint(int(self.weapon))
+        s.add_uint(self.cargohook)
+        s.add_int(self.emptyspace)
+        s.add_uint(int(self.friendship))
+        s.add_bool(self.add_player)
+        s.add_int(self.rating.min)
+        s.add_int(self.rating.max)
+        s.add_int(self.status.trader.min)
+        s.add_int(self.status.trader.max)
+        s.add_int(self.status.warrior.min)
+        s.add_int(self.status.warrior.max)
+        s.add_int(self.status.pirate.min)
+        s.add_int(self.status.pirate.max)
+        s.add_int(self.score.min)
+        s.add_int(self.score.max)
+        s.add_int(self.search_dist)
+        s.add_int(self._script.index(self.dialog))
+        s.add_single(self.strength.min)
+        s.add_single(self.strength.max)
+        s.add_widestr(self.ruins)
 
 
 class State(GraphPoint):
@@ -384,18 +391,18 @@ class State(GraphPoint):
 
     def save(self, s):
         GraphPoint.save(self, s)
-        s.write_uint(self.type)
-        s.write_int(self._script.index(self.obj))
-        s.write_uint(len(self.attack_groups))
+        s.add_uint(self.type)
+        s.add_int(self._script.index(self.obj))
+        s.add_uint(len(self.attack_groups))
         for ag in self.attack_groups:
-            s.write_int(self._script.index(ag))
-        s.write_int(self._script.index(self.item))
-        s.write_bool(self.take_all)
-        s.write_widestr(self.out_msg)
-        s.write_widestr(self.in_msg)
-        s.write_uint(int(self.ether_type))
-        s.write_widestr(self.ether_uid)
-        s.write_widestr(self.ether_msg)
+            s.add_int(self._script.index(ag))
+        s.add_int(self._script.index(self.item))
+        s.add_bool(self.take_all)
+        s.add_widestr(self.out_msg)
+        s.add_widestr(self.in_msg)
+        s.add_uint(int(self.ether_type))
+        s.add_widestr(self.ether_uid)
+        s.add_widestr(self.ether_msg)
 
 
 class ExprOp(GraphPoint):
@@ -408,8 +415,8 @@ class ExprOp(GraphPoint):
 
     def save(self, s):
         GraphPoint.save(self, s)
-        s.write_widestr(self.expression)
-        s.write_byte(int(self.type))
+        s.add_widestr(self.expression)
+        s.add_byte(int(self.type))
 
 
 class ExprIf(GraphPoint):
@@ -422,8 +429,8 @@ class ExprIf(GraphPoint):
 
     def save(self, s):
         GraphPoint.save(self, s)
-        s.write_widestr(self.expression)
-        s.write_byte(int(self.type))
+        s.add_widestr(self.expression)
+        s.add_byte(int(self.type))
 
 
 class ExprWhile(GraphPoint):
@@ -436,8 +443,8 @@ class ExprWhile(GraphPoint):
 
     def save(self, s):
         GraphPoint.save(self, s)
-        s.write_widestr(self.expression)
-        s.write_byte(int(self.type))
+        s.add_widestr(self.expression)
+        s.add_byte(int(self.type))
 
 
 class ExprVar(GraphPoint):
@@ -451,9 +458,9 @@ class ExprVar(GraphPoint):
 
     def save(self, s):
         GraphPoint.save(self, s)
-        s.write_uint(int(self.type))
-        s.write_widestr(self.init_value)
-        s.write_bool(self.is_global)
+        s.add_uint(int(self.type))
+        s.add_widestr(self.init_value)
+        s.add_bool(self.is_global)
 
 
 class Ether(GraphPoint):
@@ -468,11 +475,11 @@ class Ether(GraphPoint):
 
     def save(self, s):
         GraphPoint.save(self, s)
-        s.write_uint(int(self.type))
-        s.write_widestr(self.uid)
-        s.write_widestr(self.msg)
+        s.add_uint(int(self.type))
+        s.add_widestr(self.uid)
+        s.add_widestr(self.msg)
         for f in self.focus:
-            s.write_widestr(f)
+            s.add_widestr(f)
 
 
 class Dialog(GraphPoint):
@@ -494,7 +501,7 @@ class DialogMsg(GraphPoint):
 
     def save(self, s):
         GraphPoint.save(self, s)
-        s.write_widestr(self.msg)
+        s.add_widestr(self.msg)
 
 
 class DialogAnswer(GraphPoint):
@@ -506,7 +513,7 @@ class DialogAnswer(GraphPoint):
 
     def save(self, s):
         GraphPoint.save(self, s)
-        s.write_widestr(self.msg)
+        s.add_widestr(self.msg)
 
 
 class StarLink(GraphLink):
@@ -522,12 +529,12 @@ class StarLink(GraphLink):
 
     def save(self, s):
         GraphLink.save(self, s)
-        s.write_int(self.dist.min)
-        s.write_int(self.dist.max)
-        s.write_int(self.deviation)
-        s.write_int(self.relation.min)
-        s.write_int(self.relation.max)
-        s.write_bool(self.is_hole)
+        s.add_int(self.dist.min)
+        s.add_int(self.dist.max)
+        s.add_int(self.deviation)
+        s.add_int(self.relation.min)
+        s.add_int(self.relation.max)
+        s.add_bool(self.is_hole)
 
 
 class GroupLink(GraphLink):
@@ -542,9 +549,9 @@ class GroupLink(GraphLink):
     def save(self, s):
         GraphLink.save(self, s)
         for r in self.relations:
-            s.write_uint(int(r))
-        s.write_single(self.war_weight.min)
-        s.write_single(self.war_weight.max)
+            s.add_uint(int(r))
+        s.add_single(self.war_weight.min)
+        s.add_single(self.war_weight.max)
 
 
 class StateLink(GraphLink):
@@ -558,5 +565,11 @@ class StateLink(GraphLink):
 
     def save(self, s):
         GraphLink.save(self, s)
-        s.write_widestr(self.expression)
-        s.write_int(self.priority)
+        s.add_widestr(self.expression)
+        s.add_int(self.priority)
+
+
+classnames = {v.classname: v for v in (
+    Star, Planet, Ship, Item, Place, Group, State, ExprOp, ExprIf, ExprWhile,
+    ExprVar, Ether, Dialog, DialogMsg, DialogAnswer
+)}
