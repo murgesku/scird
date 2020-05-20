@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# NOT WORK!
 
 import argparse
 import os.path
@@ -275,4 +276,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # main()
+    print("Tool does not work!")
