@@ -56,7 +56,7 @@ class Lexer:
         self._line_start = 0
         self._line_no = 1
 
-        self._indent_lexeme = ""
+        self._indent_len = 0
 
     def tokenize(self):
         while not self._at_and():
@@ -70,7 +70,7 @@ class Lexer:
         c = self._advance()
 
         if self._current == (self._line_start + 1) and (c == '\x20'):
-            self._indent(c)
+            self._indent()
             return
 
         if c == '(': self._add_token(TokenType.LPAREN)
@@ -160,23 +160,22 @@ class Lexer:
     def _at_and(self):
         return self._current >= len(self._source)
 
-    def _indent(self, indent_sym):
+    def _indent(self):
         indent_len = 1
-        if self._indent_lexeme:
-            while self._peek() == indent_sym \
-              and indent_len < len(self._indent_lexeme):
+        if self._indent_len > 0:
+            while self._peek() == '\x20':
+                self._advance()
                 indent_len += 1
-                self._advance()
-            self._add_token(TokenType.INDENT)
-            if self._peek() == indent_sym:
-                self._start = self._current
-                self._advance()
-                self._indent(indent_sym)
+                if indent_len == self._indent_len:
+                    self._add_token(TokenType.INDENT)
+                    self._start = self._current
+                    indent_len = 0
+            self._current = self._start
         else:
-            while self._peek() == indent_sym:
+            while self._peek() == '\x20':
                 indent_len += 1
                 self._advance()
-            self._indent_lexeme = self._source[self._start:self._current]
+            self._indent_len = indent_len
             self._add_token(TokenType.INDENT)
 
     def _comment(self):

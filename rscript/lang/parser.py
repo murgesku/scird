@@ -26,9 +26,6 @@ class Parser:
             self._statement()
         return self._tokens
 
-    # def parse_expression(self):
-    #     return self._expression()
-
     def _advance(self):
         """
         :rtype: Token
