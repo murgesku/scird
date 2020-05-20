@@ -1,0 +1,9 @@
+# "Python"-related
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Working and output files
+*.s[vc]r
+*.txt
+*.dat
