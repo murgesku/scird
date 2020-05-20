@@ -3,7 +3,7 @@ from rscript.lang.ast import *
 
 class Stringifier(Visitor):
 
-    def __init__(self, lang, *, level=0):
+    def __init__(self, lang):
         """
         :type lang: blockpar.BlockPar
         """
@@ -13,34 +13,35 @@ class Stringifier(Visitor):
         else:
             self.make_substitution = True
             self.lang = lang
-        self.level = level  # how many indent tokens to remove
+        self.level = -1
 
     def process(self, unit):
-        return unit.accept(self)
+        result = unit.accept(self)
+        return result
 
-    def _process(self, seq, *, level=0):
+    def process_sequence(self, seq, *, level=-1):
+        self.level = level
         result = []
         i = 0
         while i < len(seq):
             unit = seq[i]
-            if isinstance(unit, Token):
-                if unit.type is TokenType.INDENT:
-                    c = 1  # _c_ounter
-                    while isinstance(seq[i+1], Token) \
-                            and seq[i+1].type is TokenType.INDENT:
-                        c += 1
-                        i += 1
-                    c -= level
-                    if c > 0:
-                        result += (unit.lexeme * c)
-                else:
-                    result.append(unit.lexeme)
-            elif isinstance(unit, Expr):
-                result.append(unit.accept(self))
-            elif isinstance(unit, Stmt):
+            if unit.type is TokenType.INDENT:
+                c = 1  # _c_ounter
+                while (i+1 < len(seq)) and seq[i+1].type is TokenType.INDENT:
+                    c += 1
+                    i += 1
+                if self.level < 0:
+                    self.level = c
+                c -= self.level
+                if c > 0:
+                    result += (unit.lexeme * c)
+            else:
                 result.append(unit.accept(self))
             i += 1
         return ''.join(result)
+
+    def visit_token(self, tok):
+        return tok.lexeme
 
     def visit_literal_expr(self, expr):
         return expr.children[expr.value].lexeme
@@ -49,63 +50,63 @@ class Stringifier(Visitor):
         return expr.children[expr.name].lexeme
 
     def visit_access_expr(self, expr):
-        return self._process(expr.children)
+        return self.process_sequence(expr.children, level=self.level)
 
     def visit_call_expr(self, expr):
         if self.make_substitution:
             return Interpreter(self.lang).evaluate(expr)
-        return self._process(expr.children)
+        return self.process_sequence(expr.children, level=self.level)
 
     def visit_array_expr(self, expr):
-        return self._process(expr.children)
+        return self.process_sequence(expr.children, level=self.level)
 
     def visit_group_expr(self, expr):
-        return self._process(expr.children)
+        return self.process_sequence(expr.children, level=self.level)
 
     def visit_unary_expr(self, expr):
-        return self._process(expr.children)
+        return self.process_sequence(expr.children, level=self.level)
 
     def visit_binary_expr(self, expr):
-        return self._process(expr.children)
+        return self.process_sequence(expr.children, level=self.level)
 
     def visit_assign_expr(self, expr):
-        return self._process(expr.children)
+        return self.process_sequence(expr.children, level=self.level)
 
     def visit_vardecl_expr(self, expr):
-        return self._process(expr.children)
+        return self.process_sequence(expr.children, level=self.level)
 
     def visit_expression_stmt(self, stmt):
-        return self._process(stmt.children)
+        return self.process_sequence(stmt.children, level=self.level)
 
     def visit_block_stmt(self, stmt):
-        return self._process(stmt.children)
+        return '{' + self.process_sequence(stmt.children, level=self.level) + '}'
 
     def visit_vardecl_stmt(self, stmt):
-        return self._process(stmt.children)
+        return self.process_sequence(stmt.children, level=self.level)
 
     def visit_function_stmt(self, stmt):
-        return self._process(stmt.children)
+        return self.process_sequence(stmt.children, level=self.level)
 
     def visit_class_stmt(self, stmt):
-        return self._process(stmt.children)
+        return self.process_sequence(stmt.children, level=self.level)
 
     def visit_if_stmt(self, stmt):
-        return self._process(stmt.children)
+        return self.process_sequence(stmt.children, level=self.level)
 
     def visit_for_stmt(self, stmt):
-        return self._process(stmt.children)
+        return self.process_sequence(stmt.children, level=self.level)
 
     def visit_while_stmt(self, stmt):
-        return self._process(stmt.children)
+        return self.process_sequence(stmt.children, level=self.level)
 
     def visit_try_stmt(self, stmt):
-        return self._process(stmt.children)
+        return self.process_sequence(stmt.children, level=self.level)
 
     def visit_throw_stmt(self, stmt):
-        return self._process(stmt.children)
+        return self.process_sequence(stmt.children, level=self.level)
 
     def visit_keyword_stmt(self, stmt):
-        return self._process(stmt.children)
+        return self.process_sequence(stmt.children, level=self.level)
 
 
 class Interpreter(Visitor):
@@ -121,26 +122,32 @@ class Interpreter(Visitor):
     def evaluate(self, unit):
         return unit.accept(self)
 
+    def visit_token(self, tok):
+        pass
+
     def visit_literal_expr(self, expr):
         return expr.children[expr.value].literal
 
     def visit_variable_expr(self, expr):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def visit_access_expr(self, expr):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def visit_call_expr(self, expr):
-        if self.make_substitution:
-            name = Stringifier(None).process(expr.children[expr.name])
-            if name == "CT":
+        name = Stringifier(None).process(expr.children[expr.name])
+        if name == "CT":
+            if self.make_substitution:
                 path = self.evaluate(expr.children[expr.arguments[0]])
                 path = path.split('.')
                 result = self.lang
                 for p in path:
                     result = result[p][0].content
                 return result
-            elif name == "Format":
+            else:
+                return Stringifier(None).process(expr)
+        elif name == "Format":
+            if self.make_substitution:
                 source = expr.arguments[0]
                 result = self.evaluate(expr.children[source])
                 for tag, string in zip(expr.arguments[1::2], expr.arguments[2::2]):
@@ -149,16 +156,18 @@ class Interpreter(Visitor):
                     string = f"<{string}>"
                     result = result.replace(tag, string)
                 return result
-        raise NotImplementedError
+            else:
+                return Stringifier(None).process(expr)
+        raise NotImplementedError()
 
     def visit_array_expr(self, expr):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def visit_group_expr(self, expr):
-        return self.evaluate(expr.expression)
+        return self.evaluate(expr.children[expr.expression])
 
     def visit_unary_expr(self, expr):
-        right = self.evaluate(expr.right)
+        right = self.evaluate(expr.children[expr.right])
         operator = expr.children[expr.operator]
         if operator.type is TokenType.MINUS:
             return -right
@@ -169,8 +178,8 @@ class Interpreter(Visitor):
         return
 
     def visit_binary_expr(self, expr):
-        left = self.evaluate(expr.left)
-        right = self.evaluate(expr.right)
+        left = self.evaluate(expr.children[expr.left])
+        right = self.evaluate(expr.children[expr.right])
         operator = expr.children[expr.operator]
         if operator.type is TokenType.PLUS:
             if isinstance(left, str):
@@ -217,40 +226,40 @@ class Interpreter(Visitor):
         return
 
     def visit_assign_expr(self, expr):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def visit_vardecl_expr(self, expr):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def visit_expression_stmt(self, stmt):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def visit_block_stmt(self, stmt):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def visit_vardecl_stmt(self, stmt):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def visit_function_stmt(self, stmt):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def visit_class_stmt(self, stmt):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def visit_if_stmt(self, stmt):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def visit_for_stmt(self, stmt):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def visit_while_stmt(self, stmt):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def visit_try_stmt(self, stmt):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def visit_throw_stmt(self, stmt):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def visit_keyword_stmt(self, stmt):
-        raise NotImplementedError
+        raise NotImplementedError()
