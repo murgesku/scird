@@ -1191,7 +1191,7 @@ class DialogMsg(CompiledPoint):
         nbp = BlockPar(sort=False)
         nbp.add("Name", str(self.command))
         nbp.add("Code", self.code)
-        bp[str(self.name)] = nbp
+        bp.add(str(self.name), nbp)
 
     def save(self, s):
         s.add_widestr(self.command)
