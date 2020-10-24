@@ -6,6 +6,7 @@ __all__ = [
     "random_point", "near_point",
 ]
 
+from typing import Type, TypeVar, Generic
 from random import randint
 
 
@@ -65,18 +66,13 @@ class Rect:
         return f"{self.top},{self.left},{self.bottom},{self.right}"
 
 
-class MinMax:
+T = TypeVar('T', int, float, str)
+class MinMax(Generic[T]):
     __slots__ = "min", "max"
 
-    def __init__(self, min, max):
-        """
-        :type min: int | float | str
-        :type max: int | float | str
-        """
-        self.min = min
-        """:type : T"""
-        self.max = max
-        """:type : T"""
+    def __init__(self, min_: T, max_: T):
+        self.min = min_
+        self.max = max_
 
     def __repr__(self):
         return f"MinMax({self.min}, {self.max})"
@@ -85,20 +81,15 @@ class MinMax:
         return f"{self.min}..{self.max}"
 
     @classmethod
-    def from_str(cls, s, f=str):
-        """
-        :type s: str
-        :type f: type
-        :rtype: MinMax
-        """
-        min, max = s.split('..', 1)
-        return cls(f(min), f(max))
+    def from_str(cls, s: str, f: Type = str) -> 'MinMax':
+        min_, max_ = s.split('..', 1)
+        return cls(f(min_), f(max_))
 
 
 class Status:
     __slots__ = "trader", "warrior", "pirate"
 
-    def __init__(self, trader, warrior, pirate):
+    def __init__(self, trader: MinMax[int], warrior: MinMax[int], pirate: MinMax[int]):
         self.trader = trader
         self.warrior = warrior
         self.pirate = pirate
