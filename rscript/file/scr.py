@@ -3,6 +3,7 @@ __all__ = [
 ]
 
 from abc import ABC, abstractmethod
+from typing import List, Tuple, Union, BinaryIO, TextIO
 
 from rangers.io import Stream
 from rangers.blockpar import BlockPar
@@ -14,41 +15,27 @@ class CompiledScript:
     supported = (6, 7)
 
     def __init__(self):
-        self.basepath = ""
-        self.version = 6
+        self.basepath: str = ""
+        self.version: int = 6
 
-        self.globalvars = []
-        """:type : list[Var]"""
-        self.globalcode = ""
-        self.localvars = []
-        """:type : list[Var]"""
-        self.constellations = 0
-        self.stars = []
-        """:type : list[Star]"""
-        self.places = []
-        """:type : list[Place]"""
-        self.items = []
-        """:type : list[Item]"""
-        self.groups = []
-        """:type : list[Group]"""
-        self.grouplinks = []
-        """:type : list[GroupLink]"""
-        self.initcode = ""
-        self.turncode = ""
-        self.dialogbegincode = ""
-        self.states = []
-        """:type : list[State]"""
-        self.dialogs = []
-        """:type : list[Dialog]"""
-        self.dialog_msgs = []
-        """:type : list[DialogMsg]"""
-        self.dialog_answers = []
-        """:type : list[DialogAnswer]"""
+        self.globalvars: List[Var] = []
+        self.globalcode: str = ""
+        self.localvars: List[Var] = []
+        self.constellations: int = 0
+        self.stars: List[Star] = []
+        self.places: List[Place] = []
+        self.items: List[Item] = []
+        self.groups: List[Group] = []
+        self.grouplinks: List[GroupLink] = []
+        self.initcode: str = ""
+        self.turncode: str = ""
+        self.dialogbegincode: str = ""
+        self.states: List[State] = []
+        self.dialogs: List[Dialog] = []
+        self.dialog_msgs: List[DialogMsg] = []
+        self.dialog_answers: List[DialogAnswer] = []
 
-    def save(self, f):
-        """
-        :type f: io.BinaryIO
-        """
+    def save(self, f: BinaryIO):
         s = Stream.from_io(f)
 
         s.add_uint(self.version)
@@ -121,10 +108,7 @@ class CompiledScript:
         for e in self.dialog_answers:
             e.save(s)
 
-    def load(self, f):
-        """
-        :type f: io.BinaryIO
-        """
+    def load(self, f: BinaryIO):
         s = Stream.from_io(f)
 
         self.version = s.get_uint()
@@ -198,52 +182,42 @@ class CompiledScript:
             e.load(s)
             self.dialog_answers.append(e)
 
-    def dump(self, f):
-        """
-        :type f: io.TextIO
-        """
+    def dump(self, f: TextIO):
         bp = BlockPar(sort=False)
 
-        bp.add("Version", str(self.version))
+        bp.add_par("Version", str(self.version))
 
-        nbp = BlockPar(sort=False)
+        nbp = bp.add_block("GlobalVars", False)
         for e in self.globalvars:
             e.dump(nbp)
-        bp.add("GlobalVars", nbp)
 
-        bp.add("GlobalCode", self.globalcode)
+        bp.add_par("GlobalCode", self.globalcode)
 
-        nbp = BlockPar(sort=False)
+        nbp = bp.add_block("LocalVars", False)
         for e in self.localvars:
             e.dump(nbp)
-        bp.add("LocalVars", nbp)
 
-        bp.add("Constellations", str(self.constellations))
+        bp.add_par("Constellations", str(self.constellations))
 
-        nbp = BlockPar(sort=False)
+        nbp = bp.add_block("Stars", False)
         for e in self.stars:
             e.dump(nbp)
-        bp.add("Stars", nbp)
 
-        nbp = BlockPar(sort=False)
+        nbp = bp.add_block("Places", False)
         for e in self.places:
             e.dump(nbp)
-        bp.add("Places", nbp)
 
-        nbp = BlockPar(sort=False)
+        nbp = bp.add_block("Items", False)
         for e in self.items:
             e.dump(nbp)
-        bp.add("Items", nbp)
 
-        nbp = BlockPar(sort=False)
+        nbp = bp.add_block("Groups", False)
         for e in self.groups:
             e.dump(nbp)
-        bp.add("Groups", nbp)
 
-        nbp = BlockPar(sort=False)
+        nbp = bp.add_block("GroupLinks", False)
         for e in self.grouplinks:
             e.dump(nbp)
-        bp.add("GroupLinks", nbp)
 
         bp.add("InitCode", self.initcode)
 
@@ -251,136 +225,137 @@ class CompiledScript:
 
         bp.add("DialogBegin", self.dialogbegincode)
 
-        nbp = BlockPar(sort=False)
+        nbp = bp.add_block("States", False)
         for i, e in enumerate(self.states):
             e.dump(nbp)
-        bp.add("States", nbp)
 
-        nbp = BlockPar(sort=False)
+        nbp = bp.add_block("Dialogs")
         for e in self.dialogs:
             e.dump(nbp)
-        bp.add("Dialogs", nbp)
 
-        nbp = BlockPar(sort=False)
+        nbp = bp.add_block("DialogMsgs", False)
         for e in self.dialog_msgs:
             e.dump(nbp)
-        bp.add("DialogMsgs", nbp)
 
-        nbp = BlockPar(sort=False)
+        nbp = bp.add_block("DialogAnswers", False)
         for e in self.dialog_answers:
             e.dump(nbp)
-        bp.add("DialogAnswers", nbp)
 
         bp.save_txt(f)
         del bp
 
-    def restore(self, f):
-        """
-        :type f: io.TextIO
-        """
+    def restore(self, f: TextIO):
         root = BlockPar(sort=False)
         root.load_txt(f)
 
         self.version = int(root.get_par("Version"))
 
-        for block in root.get_block("GlobalVars"):
-            e = Var(self, block.name)
-            e.restore(block.content)
+        for name, block in root.get_block("GlobalVars"):
+            e = Var(self, name)
+            e.restore(block)
             self.globalvars.append(e)
 
         self.globalcode = root.get_par("GlobalCode")
 
-        for block in root.get_block("LocalVars"):
-            e = Var(self, block.name)
-            e.restore(block.content)
+        for name, block in root.get_block("LocalVars"):
+            e = Var(self, name)
+            e.restore(block)
             self.localvars.append(e)
 
         self.constellations = int(root.get_par("Constellations"))
 
-        for block in root.get_block("Stars"):
-            e = Star(self, block.name)
-            e.restore(block.content)
+        for name, block in root.get_block("Stars"):
+            e = Star(self, name)
+            e.restore(block)
             self.stars.append(e)
 
-        for block in root.get_block("Places"):
-            e = Place(self, block.name)
-            e.restore(block.content)
+        for name, block in root.get_block("Places"):
+            e = Place(self, name)
+            e.restore(block)
             self.places.append(e)
 
-        for block in root.get_block("Items"):
-            e = Item(self, block.name)
-            e.restore(block.content)
+        for name, block in root.get_block("Items"):
+            e = Item(self, name)
+            e.restore(block)
             self.items.append(e)
 
-        for block in root.get_block("Groups"):
-            e = Group(self, block.name)
-            e.restore(block.content)
+        for name, block in root.get_block("Groups"):
+            e = Group(self, name)
+            e.restore(block)
             self.groups.append(e)
 
-        for block in root.get_block("GroupLinks"):
-            e = GroupLink(self, block.name)
-            e.restore(block.content)
+        for name, block in root.get_block("GroupLinks"):
+            e = GroupLink(self, name)
+            e.restore(block)
             self.grouplinks.append(e)
 
         self.initcode = root.get_par("InitCode")
         self.turncode = root.get_par("TurnCode")
         self.dialogbegincode = root.get_par("DialogBegin")
 
-        for block in root.get_block("States"):
-            e = State(self, block.name)
-            e.restore(block.content)
+        for name, block in root.get_block("States"):
+            e = State(self, name)
+            e.restore(block)
             self.states.append(e)
 
-        for block in root.get_block("Dialogs"):
-            e = Dialog(self, block.name)
-            e.restore(block.content)
+        for name, block in root.get_block("Dialogs"):
+            e = Dialog(self, name)
+            e.restore(block)
             self.dialogs.append(e)
 
-        for block in root.get_block("DialogMsgs"):
-            e = DialogMsg(self, block.name)
-            e.restore(block.content)
+        for name, block in root.get_block("DialogMsgs"):
+            e = DialogMsg(self, name)
+            e.restore(block)
             self.dialog_msgs.append(e)
 
-        for block in root.get_block("DialogAnswers"):
-            e = DialogAnswer(self, block.name)
-            e.restore(block.content)
+        for name, block in root.get_block("DialogAnswers"):
+            e = DialogAnswer(self, name)
+            e.restore(block)
             self.dialog_answers.append(e)
 
 
 class CompiledPoint(ABC):
-    def __init__(self, script, name=""):
-        """
-        :type script: CompiledScript
-        :type name: str
-        """
+    """
+    Элемент скомпилированного скрипта
+    """
+    
+    def __init__(self, script: CompiledScript, name: str = ""):
         self._script = script
         self.name = name
 
     @abstractmethod
-    def save(self, s):
+    def save(self, s: Stream):
         """
-        :type s: rangers.stream.Stream
+        Сохраняет элемент скомпилированного скрипта в двоичном представлении
+
+        :param s: файловый поток родительского скрипта
         """
         pass
 
     @abstractmethod
-    def load(self, s):
+    def load(self, s: Stream):
         """
-        :type s: rangers.stream.Stream
-        """
-        pass
-
-    @abstractmethod
-    def dump(self, bp):
-        """
-        :type bp: blockpar.BlockPar
+        Восстанавливает элемент скомпилированного скрипта из двоичного представления
+        
+        :param s: файловый поток родительского скрипта
         """
         pass
 
     @abstractmethod
-    def restore(self, bp):
+    def dump(self, root: BlockPar):
         """
-        :type bp: blockpar.BlockPar
+        Сохраняет элемент скомпилированного скрипта в дамп в формате блокпар
+
+        :param root: родительский блок дампа
+        """
+        pass
+
+    @abstractmethod
+    def restore(self, source: BlockPar):
+        """
+        Восстанавливает элемент скомпилированного скрипта из дампа в формате блокпар
+
+        :param source: блок дампа с содержимым элемента
         """
         pass
 
@@ -388,16 +363,8 @@ class CompiledPoint(ABC):
 class Var(CompiledPoint):
     def __init__(self, script, name):
         super().__init__(script, name)
-        self.type = None
-        """:type : var_"""
-        self.value = None
-        """:type : int | float | str"""
-
-    def dump(self, bp):
-        nbp = BlockPar(sort=False)
-        nbp.add("Type", str(self.type))
-        nbp.add("Value", str(self.value))
-        bp.add(str(self.name), nbp)
+        self.type: var_ = var_(0)
+        self.value: Union[int, float, str] = 0
 
     def save(self, s):
         s.add_byte(int(self.type))
@@ -431,58 +398,35 @@ class Var(CompiledPoint):
                 s.get_widestr()
                 s.get_byte()
 
-    def restore(self, bp):
-        self.type = var_.from_str(bp.get_par("Type"))
+    def dump(self, root):
+        bp = root.add_block(str(self.name), False)
+        bp.add_par("Type", str(self.type))
+        bp.add_par("Value", str(self.value))
+
+    def restore(self, source):
+        self.type = var_.from_str(source.get_par("Type"))
         if self.type is var_.INTEGER:
-            self.value = int(bp.get_par("Value"))
+            self.value = int(source.get_par("Value"))
         elif self.type is var_.DWORD:
-            self.value = int(bp.get_par("Value"))
+            self.value = int(source.get_par("Value"))
         elif self.type is var_.FLOAT:
-            self.value = float(bp.get_par("Value"))
+            self.value = float(source.get_par("Value"))
         elif self.type is var_.STRING:
-            self.value = bp.get_par("Value")
+            self.value = source.get_par("Value")
         elif self.type is var_.ARRAY:
-            self.value = int(bp.get_par("Value"))
+            self.value = int(source.get_par("Value"))
 
 
 class Star(CompiledPoint):
     def __init__(self, script, name):
         super().__init__(script, name)
-        self.constellation = 0
-        self.is_subspace = False
-        self.no_kling = False
-        self.no_come_kling = False
-        self.starlinks = []
-        """:type : list[StarLink]"""
-        self.planets = []
-        """:type : list[Planet]"""
-        self.ships = []
-        """:type : list[Ship]"""
-
-    def dump(self, bp):
-        nbp = BlockPar(sort=False)
-        nbp.add("Constellation", str(self.constellation))
-        if self._script.version < 7:
-            nbp.add("IsSubspace", str(self.is_subspace))
-        nbp.add("NoKling", str(self.no_kling))
-        nbp.add("NoComeKling", str(self.no_come_kling))
-
-        nnbp = BlockPar(sort=False)
-        for sl in self.starlinks:
-            sl.dump(nnbp)
-        nbp.add("StarLinks", nnbp)
-
-        nnbp = BlockPar(sort=False)
-        for p in self.planets:
-            p.dump(nnbp)
-        nbp.add("Planets", nnbp)
-
-        nnbp = BlockPar(sort=False)
-        for s in self.ships:
-            s.dump(nnbp)
-        nbp.add("Ships", nnbp)
-
-        bp.add(str(self.name), nbp)
+        self.constellation: int = 0
+        self.is_subspace: bool = False
+        self.no_kling: bool = False
+        self.no_come_kling: bool = False
+        self.starlinks: List[StarLink] = []
+        self.planets: List[Planet] = []
+        self.ships: List[Ship] = []
 
     def save(self, s):
         s.add_int(self.constellation)
@@ -526,53 +470,58 @@ class Star(CompiledPoint):
             e.load(s)
             self.ships.append(e)
 
-    def restore(self, bp):
-        self.constellation = int(bp.get_par("Constellation"))
+    def dump(self, root):
+        bp = root.add_block(str(self.name), False)
+        bp.add_par("Constellation", str(self.constellation))
         if self._script.version < 7:
-            self.is_subspace = str_to_bool(bp.get_par("IsSubspace"))
-        self.no_kling = str_to_bool(bp.get_par("NoKling"))
-        self.no_come_kling = str_to_bool(bp.get_par("NoComeKling"))
+            bp.add_par("IsSubspace", str(self.is_subspace))
+        bp.add_par("NoKling", str(self.no_kling))
+        bp.add_par("NoComeKling", str(self.no_come_kling))
 
-        for subblock in bp.get_block("StarLinks"):
-            e = StarLink(self._script, subblock.name)
-            e.restore(subblock.content)
+        nbp = bp.add_block("StarLinks", False)
+        for sl in self.starlinks:
+            sl.dump(nbp)
+
+        nbp = bp.add_block("Planets", False)
+        for p in self.planets:
+            p.dump(nbp)
+
+        nbp = bp.add_block("Ships", False)
+        for s in self.ships:
+            s.dump(nbp)
+
+    def restore(self, source):
+        self.constellation = int(source.get_par("Constellation"))
+        if self._script.version < 7:
+            self.is_subspace = str_to_bool(source.get_par("IsSubspace"))
+        self.no_kling = str_to_bool(source.get_par("NoKling"))
+        self.no_come_kling = str_to_bool(source.get_par("NoComeKling"))
+
+        for name, block in source.get_block("StarLinks"):
+            e = StarLink(self._script, name)
+            e.restore(block)
             self.starlinks.append(e)
 
-        for subblock in bp.get_block("Planets"):
-            e = Planet(self._script, subblock.name)
-            e.restore(subblock.content)
+        for name, block in source.get_block("Planets"):
+            e = Planet(self._script, name)
+            e.restore(block)
             self.planets.append(e)
 
-        for subblock in bp.get_block("Ships"):
-            e = Ship(self._script, subblock.name)
-            e.restore(subblock.content)
+        for name, block in source.get_block("Ships"):
+            e = Ship(self._script, name)
+            e.restore(block)
             self.ships.append(e)
 
 
 class StarLink(CompiledPoint):
     def __init__(self, script, name):
         super().__init__(script, name)
-        self.end_star = 0
-        self.angle = 0
-        self.distance = None
-        """:type : MinMax[int]"""
-        self.relation = None
-        """:type : MinMax[int]"""
-        self.deviation = 0
-        self.is_hole = False
-
-    def dump(self, bp):
-        nbp =BlockPar(sort=False)
-        nbp.add("EndStar", str(self._script.stars[self.end_star].name) + \
-                           ' (' + str(self.end_star) + ')')
-        if self._script.version < 7:
-            nbp.add("Angle", str(self.angle))
-        nbp.add("Distance", str(self.distance))
-        if self._script.version < 7:
-            nbp.add("Relation", str(self.relation))
-            nbp.add("Deviation", str(self.deviation))
-        nbp.add("IsHole", str(self.is_hole))
-        bp.add(str(self.name), nbp)
+        self.end_star: int = 0
+        self.angle: int = 0
+        self.distance: MinMax[int] = MinMax(0, 0)
+        self.relation: MinMax[int] = MinMax(0, 0)
+        self.deviation: int = 0
+        self.is_hole: bool = False
 
     def save(self, s):
         s.add_int(self.end_star)
@@ -596,41 +545,41 @@ class StarLink(CompiledPoint):
             self.deviation = s.get_int()
         self.is_hole = s.get_bool()
 
-    def restore(self, bp):
-        self.end_star = int(bp.get_par("EndStar"))
+    def dump(self, root):
+        bp = root.add_block(str(self.name), False)
+        bp.add_par("EndStar", str(self._script.stars[self.end_star].name) + \
+                              '(' + str(self.end_star) + ')')
         if self._script.version < 7:
-            self.angle = int(bp.get_par("Angle"))
-        self.distance = MinMax.from_str(bp.get_par("Distance"), int)
+            bp.add_par("Angle", str(self.angle))
+        bp.add_par("Distance", str(self.distance))
         if self._script.version < 7:
-            self.relation = MinMax.from_str(bp.get_par("Relation"), int)
-            self.deviation = int(bp.get_par("Deviation"))
-        self.is_hole = str_to_bool(bp.get_par("IsHole"))
+            bp.add_par("Relation", str(self.relation))
+            bp.add_par("Deviation", str(self.deviation))
+        bp.add_par("IsHole", str(self.is_hole))
+
+    def restore(self, source):
+        end_star = source.get_par("EndStar")
+        start = end_star.find('(') + 1
+        end = end_star.find(')')
+        self.end_star = int(end_star[start:end])
+        if self._script.version < 7:
+            self.angle = int(source.get_par("Angle"))
+        self.distance = MinMax.from_str(source.get_par("Distance"), int)
+        if self._script.version < 7:
+            self.relation = MinMax.from_str(source.get_par("Relation"), int)
+            self.deviation = int(source.get_par("Deviation"))
+        self.is_hole = str_to_bool(source.get_par("IsHole"))
 
 
 class Planet(CompiledPoint):
     def __init__(self, script, name):
         super().__init__(script, name)
-        self.race = None
-        """:type : Race"""
-        self.owner = None
-        """:type : o_"""
-        self.economy = None
-        """:type : e_"""
-        self.government = None
-        """:type : g_"""
-        self.range = None
-        """:type : MinMax[int]"""
-        self.dialog = ""
-
-    def dump(self, bp):
-        nbp = BlockPar(sort=False)
-        nbp.add("Race", str(self.race))
-        nbp.add("Owner", str(self.owner))
-        nbp.add("Economy", str(self.economy))
-        nbp.add("Government", str(self.government))
-        nbp.add("Range", str(self.range))
-        nbp.add("Dialog", str(self.dialog))
-        bp.add(str(self.name), nbp)
+        self.race: Race = Race(0)
+        self.owner: o_ = o_(0)
+        self.economy: e_ = e_(0)
+        self.government: g_ = g_(0)
+        self.range: MinMax[int] = MinMax(0, 0)
+        self.dialog: str = ""
 
     def save(self, s):
         s.add_uint(int(self.race))
@@ -649,62 +598,42 @@ class Planet(CompiledPoint):
         self.range = MinMax(s.get_int(), s.get_int())
         self.dialog = s.get_widestr()
 
-    def restore(self, bp):
-        self.race = r_.from_str(bp.get_par("Race"))
-        self.owner = o_.from_str(bp.get_par("Owner"))
-        self.economy = e_.from_str(bp.get_par("Economy"))
-        self.government = g_.from_str(bp.get_par("Government"))
-        self.range = MinMax.from_str(bp.get_par("Range"), int)
-        self.dialog = bp.get_par("Dialog")
+    def dump(self, root):
+        bp = root.add_block(str(self.name), False)
+        bp.add_par("Race", str(self.race))
+        bp.add_par("Owner", str(self.owner))
+        bp.add_par("Economy", str(self.economy))
+        bp.add_par("Government", str(self.government))
+        bp.add_par("Range", str(self.range))
+        bp.add_par("Dialog", str(self.dialog))
+
+    def restore(self, source):
+        self.race = r_.from_str(source.get_par("Race"))
+        self.owner = o_.from_str(source.get_par("Owner"))
+        self.economy = e_.from_str(source.get_par("Economy"))
+        self.government = g_.from_str(source.get_par("Government"))
+        self.range = MinMax.from_str(source.get_par("Range"), int)
+        self.dialog = source.get_par("Dialog")
 
 
 class Ship(CompiledPoint):
     def __init__(self, script, name):
         super().__init__(script, name)
-        self.count = 0
-        self.owner = None
-        """:type : o_"""
-        self.type = None
-        """:type : t_"""
-        self.is_player = False
-        self.speed = None
-        """:type : MinMax[int]"""
-        self.weapon = None
-        """:type : w_"""
-        self.cargohook = 0
-        self.emptyspace = 0
-        self.rating = None
-        """:type : MinMax[int]"""
-        self.status = None
-        """:type : Status"""
-        self.score = None
-        """:type : MinMax[int]"""
-        self.strength = None
-        """:type : MinMax[float]"""
-        self.ruins = ""
-
-    def dump(self, bp):
-        nbp = BlockPar(sort=False)
-        nbp.add("Count", str(self.count))
-        nbp.add("Owner", str(self.owner))
-        nbp.add("Type", str(self.type))
-        nbp.add("IsPlayer", str(self.is_player))
-        nbp.add("Speed", str(self.speed))
-        nbp.add("Weapon", str(self.weapon))
-        nbp.add("CargoHook", str(self.cargohook))
-        nbp.add("EmptySpace", str(self.emptyspace))
-        if self._script.version < 7:
-            nbp.add("Rating", str(self.rating))
-        st = BlockPar(sort=False)
-        st.add("Trader", str(self.status.trader))
-        st.add("Warrior", str(self.status.warrior))
-        st.add("Pirate", str(self.status.pirate))
-        nbp.add("Status", st)
-        if self._script.version < 7:
-            nbp.add("Score", str(self.score))
-        nbp.add("Strength", str(self.strength))
-        nbp.add("Ruins", str(self.ruins))
-        bp.add(str(self.name), nbp)
+        self.count: int = 0
+        self.owner: o_ = o_(0)
+        self.type: t_ = t_(0)
+        self.is_player: bool = False
+        self.speed: MinMax[int] = MinMax(0, 0)
+        self.weapon: w_ = w_(0)
+        self.cargohook: int = 0
+        self.emptyspace: int = 0
+        self.rating: MinMax[int] = MinMax(0, 0)
+        self.status: Status = Status(MinMax(0, 0),
+                                     MinMax(0, 0),
+                                     MinMax(0, 0),)
+        self.score: MinMax[int] = MinMax(0, 0)
+        self.strength: MinMax[float] = MinMax(0.0, 0.0)
+        self.ruins: str = ""
 
     def save(self, s):
         s.add_int(self.count)
@@ -751,54 +680,58 @@ class Ship(CompiledPoint):
         self.strength = MinMax(s.get_single(), s.get_single())
         self.ruins = s.get_widestr()
 
-    def restore(self, bp):
-        self.count = int(bp.get_par("Count"))
-        self.owner = o_.from_str(bp.get_par("Owner"))
-        self.type = t_.from_str(bp.get_par("Type"))
-        self.is_player = str_to_bool(bp.get_par("IsPlayer"))
-        self.speed = MinMax.from_str(bp.get_par("Speed"), int)
-        self.weapon = w_.from_str(bp.get_par("Weapon"))
-        self.cargohook = int(bp.get_par("CargoHook"))
-        self.emptyspace = int(bp.get_par("EmptySpace"))
+    def dump(self, root):
+        bp = root.add_block(str(self.name), False)
+        bp.add_par("Count", str(self.count))
+        bp.add_par("Owner", str(self.owner))
+        bp.add_par("Type", str(self.type))
+        bp.add_par("IsPlayer", str(self.is_player))
+        bp.add_par("Speed", str(self.speed))
+        bp.add_par("Weapon", str(self.weapon))
+        bp.add_par("CargoHook", str(self.cargohook))
+        bp.add_par("EmptySpace", str(self.emptyspace))
         if self._script.version < 7:
-            self.rating = MinMax.from_str(bp.get_par("Rating"), int)
-        status = bp.get_block("Status")
+            bp.add_par("Rating", str(self.rating))
+        st = bp.add_block("Status", False)
+        st.add_par("Trader", str(self.status.trader))
+        st.add_par("Warrior", str(self.status.warrior))
+        st.add_par("Pirate", str(self.status.pirate))
+        if self._script.version < 7:
+            bp.add_par("Score", str(self.score))
+        bp.add_par("Strength", str(self.strength))
+        bp.add_par("Ruins", str(self.ruins))
+
+    def restore(self, source):
+        self.count = int(source.get_par("Count"))
+        self.owner = o_.from_str(source.get_par("Owner"))
+        self.type = t_.from_str(source.get_par("Type"))
+        self.is_player = str_to_bool(source.get_par("IsPlayer"))
+        self.speed = MinMax.from_str(source.get_par("Speed"), int)
+        self.weapon = w_.from_str(source.get_par("Weapon"))
+        self.cargohook = int(source.get_par("CargoHook"))
+        self.emptyspace = int(source.get_par("EmptySpace"))
+        if self._script.version < 7:
+            self.rating = MinMax.from_str(source.get_par("Rating"), int)
+        status = source.get_block("Status")
         self.status = Status(MinMax.from_str(status.get_par("Trader"), int),
                              MinMax.from_str(status.get_par("Warrior"), int),
                              MinMax.from_str(status.get_par("Pirate"), int))
         del status
         if self._script.version < 7:
-            self.score = MinMax.from_str(bp.get_par("Score"), int)
-        self.strength = MinMax.from_str(bp.get_par("Strength"), float)
-        self.ruins = bp.get_par("Ruins")
+            self.score = MinMax.from_str(source.get_par("Score"), int)
+        self.strength = MinMax.from_str(source.get_par("Strength"), float)
+        self.ruins = source.get_par("Ruins")
 
 
 class Place(CompiledPoint):
     def __init__(self, script, name):
         super().__init__(script, name)
-        self.star = ""
-        self.type = None
-        """:type : pt_"""
-        self.object = ""
-        self.angle = 0.0
-        self.distance = 0.0
-        self.radius = 0
-
-    def dump(self, bp):
-        nbp = BlockPar(sort=False)
-        nbp.add("Star", str(self.star))
-        nbp.add("Type", str(self.type))
-        if self.type is not pt_.FREE:
-            nbp.add("Object", str(self.object))
-        if self.type is pt_.FREE:
-            nbp.add("Angle", str(self.angle))
-        if self.type in (pt_.FREE, pt_.TO_STAR, pt_.FROM_SHIP):
-            nbp.add("Distance", str(self.distance))
-        if self.type is not pt_.IN_PLANET:
-            nbp.add("Radius", str(self.radius))
-        if self.type in (pt_.TO_STAR, pt_.FROM_SHIP):
-            nbp.add("Angle", str(self.angle))
-        bp.add(str(self.name), nbp)
+        self.star: str = ""
+        self.type: pt_ = pt_(0)
+        self.object: str = ""
+        self.angle: float = 0.0
+        self.distance: float = 0.0
+        self.radius: int = 0
 
     def save(self, s):
         s.add_widestr(self.star)
@@ -828,47 +761,47 @@ class Place(CompiledPoint):
         if self.type in (pt_.TO_STAR, pt_.FROM_SHIP):
             self.angle = s.get_single()
 
-    def restore(self, bp):
-        self.star = bp.get_par("Star")
-        self.type = pt_.from_str(bp.get_par("Type"))
+    def dump(self, root):
+        bp = root.add_block(str(self.name), False)
+        bp.add_par("Star", str(self.star))
+        bp.add_par("Type", str(self.type))
         if self.type is not pt_.FREE:
-            self.object = bp.get_par("Object")
+            bp.add_par("Object", str(self.object))
         if self.type is pt_.FREE:
-            self.angle = float(bp.get_par("Angle"))
+            bp.add_par("Angle", str(self.angle))
         if self.type in (pt_.FREE, pt_.TO_STAR, pt_.FROM_SHIP):
-            self.distance = float(bp.get_par("Distance"))
+            bp.add_par("Distance", str(self.distance))
         if self.type is not pt_.IN_PLANET:
-            self.radius = int(bp.get_par("Radius"))
+            bp.add_par("Radius", str(self.radius))
         if self.type in (pt_.TO_STAR, pt_.FROM_SHIP):
-            self.angle = float(bp.get_par("Angle"))
+            bp.add_par("Angle", str(self.angle))
+
+    def restore(self, source):
+        self.star = source.get_par("Star")
+        self.type = pt_.from_str(source.get_par("Type"))
+        if self.type is not pt_.FREE:
+            self.object = source.get_par("Object")
+        if self.type is pt_.FREE:
+            self.angle = float(source.get_par("Angle"))
+        if self.type in (pt_.FREE, pt_.TO_STAR, pt_.FROM_SHIP):
+            self.distance = float(source.get_par("Distance"))
+        if self.type is not pt_.IN_PLANET:
+            self.radius = int(source.get_par("Radius"))
+        if self.type in (pt_.TO_STAR, pt_.FROM_SHIP):
+            self.angle = float(source.get_par("Angle"))
 
 
 class Item(CompiledPoint):
     def __init__(self, script, name):
         super().__init__(script, name)
-        self.place = ""
-        self.kind = None
-        """:type : ic_"""
-        self.type = None
-        """:type : int"""
-        self.size = 0
-        self.level = 0
-        self.radius = 0
-        self.owner = None
-        """:type : Race"""
-        self.useless = ""
-
-    def dump(self, bp):
-        nbp = BlockPar(sort=False)
-        nbp.add("Place", str(self.place))
-        nbp.add("Class", str(self.kind))
-        nbp.add("Type", str(self.type))
-        nbp.add("Size", str(self.size))
-        nbp.add("Level", str(self.level))
-        nbp.add("Radius", str(self.radius))
-        nbp.add("Owner", str(self.owner))
-        nbp.add("Useless", str(self.useless))
-        bp.add(str(self.name), nbp)
+        self.place: str = ""
+        self.kind: ic_ = ic_(0)
+        self.type: int = 0
+        self.size: int = 0
+        self.level: int = 0
+        self.radius: int = 0
+        self.owner: Race = Race(0)
+        self.useless: str = ""
 
     def save(self, s):
         s.add_widestr(self.place)
@@ -890,77 +823,51 @@ class Item(CompiledPoint):
         self.owner = Race(s.get_uint())
         self.useless = s.get_widestr()
 
-    def restore(self, bp):
-        self.place = bp.get_par("Place")
-        self.kind = ic_.from_str(bp.get_par("Class"))
-        self.type = int(bp.get_par("Type"))
-        self.size = int(bp.get_par("Size"))
-        self.level = int(bp.get_par("Level"))
-        self.radius = int(bp.get_par("Radius"))
-        self.owner = Race.from_str(bp.get_par("Owner"))
-        self.useless = bp.get_par("Useless")
+    def dump(self, root):
+        bp = root.add_block(str(self.name), False)
+        bp.add_par("Place", str(self.place))
+        bp.add_par("Class", str(self.kind))
+        bp.add_par("Type", str(self.type))
+        bp.add_par("Size", str(self.size))
+        bp.add_par("Level", str(self.level))
+        bp.add_par("Radius", str(self.radius))
+        bp.add_par("Owner", str(self.owner))
+        bp.add_par("Useless", str(self.useless))
+
+    def restore(self, source):
+        self.place = source.get_par("Place")
+        self.kind = ic_.from_str(source.get_par("Class"))
+        self.type = int(source.get_par("Type"))
+        self.size = int(source.get_par("Size"))
+        self.level = int(source.get_par("Level"))
+        self.radius = int(source.get_par("Radius"))
+        self.owner = Race.from_str(source.get_par("Owner"))
+        self.useless = source.get_par("Useless")
 
 
 class Group(CompiledPoint):
     def __init__(self, script, name):
         super().__init__(script, name)
-        self.planet = ""
-        self.state = 0
-        self.owner = None
-        """:type : o_"""
-        self.type = None
-        """:type : t_"""
-        self.count = None
-        """:type : MinMax"""
-        self.speed = None
-        """:type : MinMax"""
-        self.weapon = None
-        """:type : w_"""
-        self.cargohook = 0
-        self.emptyspace = 0
-        self.friendship = None
-        """:type : f_"""
-        self.add_player = False
-        self.rating = None
-        """:type : MinMax"""
-        self.score = None
-        """:type : MinMax"""
-        self.status = None
-        """:type : Status"""
-        self.search_distance = 0
-        self.dialog = ""
-        self.strength = None
-        """:type : MinMax"""
-        self.ruins = ""
-
-    def dump(self, bp):
-        nbp = BlockPar(sort=False)
-        nbp.add("Planet", str(self.planet))
-        nbp.add("State", str(self.state) + \
-                         '(' + str(self._script.states[self.state].name) + ')')
-        nbp.add("Owner", str(self.owner))
-        nbp.add("Type", str(self.type))
-        nbp.add("Count", str(self.count))
-        nbp.add("Speed", str(self.speed))
-        nbp.add("Weapon", str(self.weapon))
-        nbp.add("CargoHook", str(self.cargohook))
-        nbp.add("EmptySpace", str(self.emptyspace))
-        if self._script.version < 7:
-            nbp.add("Friendship", str(self.friendship))
-        nbp.add("AddPlayer", str(self.add_player))
-        if self._script.version < 7:
-            nbp.add("Rating", str(self.rating))
-            nbp.add("Score", str(self.score))
-        st = BlockPar(sort=False)
-        st.add("Trader", str(self.status.trader))
-        st.add("Warrior", str(self.status.warrior))
-        st.add("Pirate", str(self.status.pirate))
-        nbp.add("Status", st)
-        nbp.add("SearchDist", str(self.search_distance))
-        nbp.add("Dialog", str(self.dialog))
-        nbp.add("Strength", str(self.strength))
-        nbp.add("Ruins", str(self.ruins))
-        bp.add(str(self.name), nbp)
+        self.planet: str = ""
+        self.state: int = 0
+        self.owner: o_ = o_(0)
+        self.type: t_ = t_(0)
+        self.count: MinMax[int] = MinMax(0, 0)
+        self.speed: MinMax[int] = MinMax(0, 0)
+        self.weapon: w_ = w_(0)
+        self.cargohook: int = 0
+        self.emptyspace: int = 0
+        self.friendship: f_ = f_(0)
+        self.add_player: bool = False
+        self.rating: MinMax[int] = MinMax(0, 0)
+        self.score: MinMax[int] = MinMax(0, 0)
+        self.status: Status = Status(MinMax(0, 0),
+                                     MinMax(0, 0),
+                                     MinMax(0, 0), )
+        self.search_distance: int = 0
+        self.dialog: str = ""
+        self.strength: MinMax[float] = MinMax(0.0, 0.0)
+        self.ruins: str = ""
 
     def save(self, s):
         s.add_widestr(self.planet)
@@ -1018,51 +925,70 @@ class Group(CompiledPoint):
         self.strength = MinMax(s.get_single(), s.get_single())
         self.ruins = s.get_widestr()
 
-    def restore(self, bp):
-        self.planet = bp.get_par("Planet")
-        state = bp.get_par("State").split('(', 1)
-        self.state = int(state[0].strip())
-        self.owner = o_.from_str(bp.get_par("Owner"))
-        self.type = t_.from_str(bp.get_par("Type"))
-        self.count = MinMax.from_str(bp.get_par("Count"), int)
-        self.speed = MinMax.from_str(bp.get_par("Speed"), int)
-        self.weapon = w_.from_str(bp.get_par("Weapon"))
-        self.cargohook = int(bp.get_par("CargoHook"))
-        self.emptyspace = int(bp.get_par("EmptySpace"))
+    def dump(self, root):
+        bp = root.add_block(str(self.name), False)
+        bp.add_par("Planet", str(self.planet))
+        bp.add_par("State", str(self._script.states[self.state].name) + \
+                        '(' + str(self.state) + ')')
+        bp.add_par("Owner", str(self.owner))
+        bp.add_par("Type", str(self.type))
+        bp.add_par("Count", str(self.count))
+        bp.add_par("Speed", str(self.speed))
+        bp.add_par("Weapon", str(self.weapon))
+        bp.add_par("CargoHook", str(self.cargohook))
+        bp.add_par("EmptySpace", str(self.emptyspace))
         if self._script.version < 7:
-            self.friendship = f_.from_str(bp.get_par("Friendship"))
-        self.add_player = str_to_bool(bp.get_par("AddPlayer"))
+            bp.add_par("Friendship", str(self.friendship))
+        bp.add_par("AddPlayer", str(self.add_player))
         if self._script.version < 7:
-            self.rating = MinMax.from_str(bp.get_par("Rating"), int)
-            self.score = MinMax.from_str(bp.get_par("Score"), int)
-        status = bp.get_block("Status")
+            bp.add_par("Rating", str(self.rating))
+            bp.add_par("Score", str(self.score))
+        st = bp.add_block("Status", False)
+        st.add_par("Trader", str(self.status.trader))
+        st.add_par("Warrior", str(self.status.warrior))
+        st.add_par("Pirate", str(self.status.pirate))
+        bp.add_par("SearchDist", str(self.search_distance))
+        bp.add_par("Dialog", str(self.dialog))
+        bp.add_par("Strength", str(self.strength))
+        bp.add_par("Ruins", str(self.ruins))
+
+    def restore(self, source):
+        self.planet = source.get_par("Planet")
+        state = source.get_par("State")
+        start = state.find('(') + 1
+        end = state.find(')')
+        self.state = int(state[start:end])
+        self.owner = o_.from_str(source.get_par("Owner"))
+        self.type = t_.from_str(source.get_par("Type"))
+        self.count = MinMax.from_str(source.get_par("Count"), int)
+        self.speed = MinMax.from_str(source.get_par("Speed"), int)
+        self.weapon = w_.from_str(source.get_par("Weapon"))
+        self.cargohook = int(source.get_par("CargoHook"))
+        self.emptyspace = int(source.get_par("EmptySpace"))
+        if self._script.version < 7:
+            self.friendship = f_.from_str(source.get_par("Friendship"))
+        self.add_player = str_to_bool(source.get_par("AddPlayer"))
+        if self._script.version < 7:
+            self.rating = MinMax.from_str(source.get_par("Rating"), int)
+            self.score = MinMax.from_str(source.get_par("Score"), int)
+        status = source.get_block("Status")
         self.status = Status(MinMax.from_str(status.get_par("Trader"), int),
                              MinMax.from_str(status.get_par("Warrior"), int),
                              MinMax.from_str(status.get_par("Pirate"), int))
         del status
-        self.search_distance = int(bp.get_par("SearchDist"))
-        self.dialog = bp.get_par("Dialog")
-        self.strength = MinMax.from_str(bp.get_par("Strength"), float)
-        self.ruins = bp.get_par("Ruins")
+        self.search_distance = int(source.get_par("SearchDist"))
+        self.dialog = source.get_par("Dialog")
+        self.strength = MinMax.from_str(source.get_par("Strength"), float)
+        self.ruins = source.get_par("Ruins")
 
 
 class GroupLink(CompiledPoint):
     def __init__(self, script, name):
         super().__init__(script, name)
-        self.begin = 0
-        self.end = 0
-        self.relations = None
-        """:type : tuple[int]"""
-        self.war_weight = None
-        """:type : MinMax"""
-
-    def dump(self, bp):
-        nbp = BlockPar(sort=False)
-        nbp.add("Begin", str(self.begin))
-        nbp.add("End", str(self.end))
-        nbp.add("Relations", str(self.relations))
-        nbp.add("WarWeight", str(self.war_weight))
-        bp.add(str(self.name), nbp)
+        self.begin: int = 0
+        self.end: int = 0
+        self.relations: Tuple[rel_, rel_] = (rel_(0), rel_(0))
+        self.war_weight: MinMax[float] = MinMax(0.0, 0.0)
 
     def save(self, s):
         s.add_int(self.begin)
@@ -1078,46 +1004,34 @@ class GroupLink(CompiledPoint):
         self.relations = (rel_(s.get_uint()), rel_(s.get_uint()))
         self.war_weight = MinMax(s.get_single(), s.get_single())
 
-    def restore(self, bp):
-        self.begin = int(bp.get_par("Begin"))
-        self.end = int(bp.get_par("End"))
-        relations = bp.get_par("Relations").strip('()').split(',')
+    def dump(self, root):
+        bp = root.add_block(str(self.name), False)
+        bp.add_par("Begin", str(self.begin))
+        bp.add_par("End", str(self.end))
+        bp.add_par("Relations", str(self.relations))
+        bp.add_par("WarWeight", str(self.war_weight))
+
+    def restore(self, source):
+        self.begin = int(source.get_par("Begin"))
+        self.end = int(source.get_par("End"))
+        relations = source.get_par("Relations").strip('()').split(',')
         self.relations = (rel_.from_str(relations[0].strip()),
                           rel_.from_str(relations[1].strip()))
-        self.war_weight = MinMax.from_str(bp.get_par("WarWeight"), float)
+        self.war_weight = MinMax.from_str(source.get_par("WarWeight"), float)
 
 
 class State(CompiledPoint):
     def __init__(self, script, name):
         super().__init__(script, name)
-        self.type = None
-        """:type : mt_"""
+        self.type: mt_ = mt_(0)
         self.object = ""
-        self.attack = []
-        """:type : list[str]"""
-        self.take_item = ""
-        self.take_all = False
-        self.out_msg = ""
-        self.in_msg = ""
-        self.ether = ""
-        self.code = ""
-
-    def dump(self, bp):
-        nbp = BlockPar(sort=False)
-        nbp.add("Type", str(self.type))
-        if self.type not in (mt_.NONE, mt_.FREE):
-            nbp.add("Object", str(self.object))
-        attack = BlockPar(sort=False)
-        for i, a in enumerate(self.attack):
-            attack.add(str(i), str(a))
-        nbp.add("Attack", attack)
-        nbp.add("TakeItem", str(self.take_item))
-        nbp.add("TakeAll", str(self.take_all))
-        nbp.add("OutMsg", str(self.out_msg))
-        nbp.add("InMsg", str(self.in_msg))
-        nbp.add("Ether", str(self.ether))
-        nbp.add("Code", self.code)
-        bp.add(str(self.name), nbp)
+        self.attack: List[str] = []
+        self.take_item: str = ""
+        self.take_all: bool = False
+        self.out_msg: str = ""
+        self.in_msg: str = ""
+        self.ether: str = ""
+        self.code: str = ""
 
     def save(self, s):
         s.add_uint(int(self.type))
@@ -1146,30 +1060,40 @@ class State(CompiledPoint):
         self.ether = s.get_widestr()
         self.code = s.get_widestr()
 
-    def restore(self, bp):
-        self.type = mt_.from_str(bp.get_par("Type"))
+    def dump(self, root):
+        bp = root.add_block(str(self.name), False)
+        bp.add_par("Type", str(self.type))
         if self.type not in (mt_.NONE, mt_.FREE):
-            self.object = bp.get_par("Object")
-        for par in bp.get_block("Attack"):
-            self.attack.append(par.content)
-        self.take_item = bp.get_par("TakeItem")
-        self.take_all = str_to_bool(bp.get_par("TakeAll"))
-        self.out_msg = bp.get_par("OutMsg")
-        self.in_msg = bp.get_par("InMsg")
-        self.ether = bp.get_par("Ether")
+            bp.add_par("Object", str(self.object))
+        attack = bp.add_block("Attack", False)
+        for i, a in enumerate(self.attack):
+            attack.add_par(str(i), str(a))
+        bp.add_par("TakeItem", str(self.take_item))
+        bp.add_par("TakeAll", str(self.take_all))
+        bp.add_par("OutMsg", str(self.out_msg))
+        bp.add_par("InMsg", str(self.in_msg))
+        bp.add_par("Ether", str(self.ether))
+        bp.add_par("Code", self.code)
 
-        self.code = bp.get_par("Code")
+    def restore(self, source):
+        self.type = mt_.from_str(source.get_par("Type"))
+        if self.type not in (mt_.NONE, mt_.FREE):
+            self.object = source.get_par("Object")
+        for par in source.get_block("Attack"):
+            self.attack.append(par.content)
+        self.take_item = source.get_par("TakeItem")
+        self.take_all = str_to_bool(source.get_par("TakeAll"))
+        self.out_msg = source.get_par("OutMsg")
+        self.in_msg = source.get_par("InMsg")
+        self.ether = source.get_par("Ether")
+
+        self.code = source.get_par("Code")
 
 
 class Dialog(CompiledPoint):
     def __init__(self, script, name):
         super().__init__(script, name)
-        self.code = ""
-
-    def dump(self, bp):
-        nbp = BlockPar(sort=False)
-        nbp.add("Code", self.code)
-        bp.add(str(self.name), nbp)
+        self.code: str = ""
 
     def save(self, s):
         s.add_widestr(self.code)
@@ -1177,21 +1101,19 @@ class Dialog(CompiledPoint):
     def load(self, s):
         self.code = s.get_widestr()
 
-    def restore(self, bp):
-        self.code = bp.get_par("Code")
+    def dump(self, root):
+        bp = root.add_block(str(self.name), False)
+        bp.add_par("Code", self.code)
+
+    def restore(self, source):
+        self.code = source.get_par("Code")
 
 
 class DialogMsg(CompiledPoint):
     def __init__(self, script, name):
         super().__init__(script, name)
-        self.command = ""
-        self.code = ""
-
-    def dump(self, bp):
-        nbp = BlockPar(sort=False)
-        nbp.add("Name", str(self.command))
-        nbp.add("Code", self.code)
-        bp.add(str(self.name), nbp)
+        self.command: str = ""
+        self.code: str = ""
 
     def save(self, s):
         s.add_widestr(self.command)
@@ -1201,24 +1123,22 @@ class DialogMsg(CompiledPoint):
         self.command = s.get_widestr()
         self.code = s.get_widestr()
 
-    def restore(self, bp):
-        self.command = bp.get_par("Name")
-        self.code = bp.get_par("Code")
+    def dump(self, root):
+        bp = root.add_block(str(self.name), False)
+        bp.add_par("Name", str(self.command))
+        bp.add_par("Code", self.code)
+
+    def restore(self, source):
+        self.command = source.get_par("Name")
+        self.code = source.get_par("Code")
 
 
 class DialogAnswer(CompiledPoint):
     def __init__(self, script, name):
         super().__init__(script, name)
-        self.command = ""
-        self.answer = ""
-        self.code = ""
-
-    def dump(self, bp):
-        nbp = BlockPar(sort=False)
-        nbp.add("Command", str(self.command))
-        nbp.add("Answer", str(self.answer))
-        nbp.add("Code", self.code)
-        bp.add(str(self.name), nbp)
+        self.command: str = ""
+        self.answer: str = ""
+        self.code: str = ""
 
     def save(self, s):
         s.add_widestr(self.command)
@@ -1230,8 +1150,13 @@ class DialogAnswer(CompiledPoint):
         self.answer = s.get_widestr().strip()
         self.code = s.get_widestr()
 
-    def restore(self, bp):
-        self.command = bp.get_par("Command")
-        self.answer = bp.get_par("Answer")
-        self.code = bp.get_par("Code")
+    def dump(self, root):
+        bp = root.add_block(str(self.name), False)
+        bp.add_par("Command", str(self.command))
+        bp.add_par("Answer", str(self.answer))
+        bp.add_par("Code", self.code)
 
+    def restore(self, source):
+        self.command = source.get_par("Command")
+        self.answer = source.get_par("Answer")
+        self.code = source.get_par("Code")
